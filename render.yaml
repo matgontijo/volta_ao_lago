@@ -29,5 +29,5 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: DATABASE_URL
-        value: "postgres://postgres.bbiyteqzzgifxzwzxanh:Voltaaolago2026canelas%21@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+        sync: false # cole a connection string do Supabase/Neon no painel
       # REDIS_URL é OPCIONAL — sem ele o backend roda em instância única.
