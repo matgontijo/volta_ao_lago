@@ -2,7 +2,7 @@ import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
 import { fetchUsers, getMagicLink, type RosterUser } from '../lib/api';
 
-const MOBILE_URL = import.meta.env.VITE_MOBILE_URL ?? 'http://localhost:5173';
+const MOBILE_URL = import.meta.env.VITE_MOBILE_URL ?? `${window.location.origin}/mobile`;
 
 function roleLabel(u: RosterUser): string {
   if (u.vehicle_role === 'van_pickup') return 'Van — co-piloto';

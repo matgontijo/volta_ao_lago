@@ -1,15 +1,23 @@
-# Blueprint do Render (plano FREE). Importe pelo painel: New > Blueprint.
-# Backend como Web Service (Node) + os dois frontends como Static Sites.
-# DATABASE_URL você cria à parte (Supabase/Neon free) e cola no env do backend.
+# Blueprint do Render — SERVIÇO ÚNICO (plano free/basic).
+# Backend + Mobile PWA + Dashboard, tudo no mesmo processo Node.
+# O NestJS serve os frontends como arquivos estáticos:
+#   Dashboard → /
+#   Mobile    → /mobile/
+#   API       → /auth, /health, /race, /admin
+#   WebSocket → /socket.io
+#
+# DATABASE_URL: crie à parte (Supabase/Neon free) e cole no painel do Render.
 services:
-  # ---------------- Backend (WebSocket + API) ----------------
   - type: web
-    name: volta-backend
+    name: volta-ao-lago
     runtime: node
     plan: free
-    rootDir: backend
-    buildCommand: npm install && npm run build
-    startCommand: node dist/main.js
+    buildCommand: >
+      npm install &&
+      npm --workspace backend run build &&
+      npm --workspace apps/mobile run build &&
+      npm --workspace apps/dashboard run build
+    startCommand: node backend/dist/main.js
     healthCheckPath: /health
     envVars:
       - key: PORT
@@ -23,37 +31,3 @@ services:
       - key: DATABASE_URL
         sync: false # cole a connection string do Supabase/Neon no painel
       # REDIS_URL é OPCIONAL — sem ele o backend roda em instância única.
-
-  # ---------------- PWA do co-piloto ----------------
-  - type: web
-    name: volta-mobile
-    runtime: static
-    plan: free
-    rootDir: apps/mobile
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        sync: false # cole a URL pública do volta-backend
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
-  # ---------------- Dashboard (torre) ----------------
-  - type: web
-    name: volta-dashboard
-    runtime: static
-    plan: free
-    rootDir: apps/dashboard
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        sync: false # cole a URL pública do volta-backend
-      - key: VITE_MOBILE_URL
-        sync: false # cole a URL pública do volta-mobile (usada nos QR codes)
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html

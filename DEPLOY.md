@@ -12,8 +12,7 @@ Tudo aqui roda em **planos free**. Nenhum cartão obrigatório.
 | Peça | Serviço free | Observação |
 |---|---|---|
 | Banco | **Supabase** ou **Neon** | Postgres com PostGIS + pgcrypto |
-| Backend (API + WebSocket) | **Render** (ou Fly.io) | WebSocket persistente, HTTPS |
-| PWA + Dashboard | **Render Static** / Cloudflare Pages / Vercel | build estático do Vite |
+| Tudo-em-um (API + WS + frontends) | **Render** (ou Fly.io) | 1 serviço Node serve tudo |
 | Redis | **OPCIONAL** (Upstash free) | sem ele = 1 instância (graceful) |
 
 ---
@@ -35,19 +34,22 @@ Tudo aqui roda em **planos free**. Nenhum cartão obrigatório.
 
 ---
 
-## 2. Backend (Render free)
+## 2. Deploy unificado (Render free — 1 serviço)
 
-Opção A — **Blueprint** (usa o `render.yaml` da raiz):
+O backend NestJS serve a API, WebSocket **e** os dois frontends estáticos:
+- `/` → Dashboard (torre de comando)
+- `/mobile/` → PWA do co-piloto
+- `/health`, `/auth/*`, `/race/*`, `/admin/*` → API REST
+- `/socket.io` → WebSocket
+
+**Via Blueprint** (usa o `render.yaml` da raiz):
 1. New → **Blueprint** → conecte o repositório.
-2. No serviço `volta-backend`, defina:
+2. No serviço `volta-ao-lago`, defina:
    - `DATABASE_URL` = a string do Supabase
    - `DATABASE_SSL` = `true`
    - `JWT_SECRET` = (gerado automaticamente)
-3. Deploy. A URL fica tipo `https://volta-backend.onrender.com`.
+3. Deploy. A URL fica tipo `https://volta-ao-lago.onrender.com`.
    Teste: abra `/health` → deve responder `{"status":"ok"}`.
-
-Opção B — **Fly.io**: `cd backend && fly launch --no-deploy && fly deploy`,
-depois `fly secrets set DATABASE_URL=... DATABASE_SSL=true JWT_SECRET=...`.
 
 > Render free hiberna após 15 min ocioso (cold start ~30s). Durante a prova o
 > tráfego é contínuo, então fica acordado. Para garantir, aponte um cron grátis
@@ -55,24 +57,11 @@ depois `fly secrets set DATABASE_URL=... DATABASE_SSL=true JWT_SECRET=...`.
 
 ---
 
-## 3. Frontends (Render Static / Vercel)
+## 3. Conectar tudo
 
-Para **cada** app (`apps/mobile` e `apps/dashboard`):
-- Build command: `npm install && npm run build`
-- Publish dir: `dist`
-- Variável de ambiente: `VITE_API_URL` = a URL pública do backend (passo 2)
-- SPA rewrite: tudo → `/index.html` (o `render.yaml` já faz isso)
-
-No Vercel/Cloudflare Pages é igual: defina `VITE_API_URL` antes do build.
-
----
-
-## 4. Conectar tudo
-
-- Backend `CORS_ORIGIN`: pode deixar `*` (free) ou listar as URLs dos frontends
-  separadas por vírgula.
-- Abra o **dashboard** → `torre` / `volta2026`.
-- No celular, abra a **PWA mobile** (HTTPS) → "Adicionar à tela inicial" →
+Tudo está no mesmo serviço — sem configuração de CORS entre serviços!
+- Abra **`/`** (dashboard) → `torre` / `volta2026`.
+- No celular, abra **`/mobile/`** (HTTPS) → "Adicionar à tela inicial" →
   login do co-piloto → permita a localização.
 
 ---
