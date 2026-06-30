@@ -1,0 +1,29 @@
+# Alternativa free: Fly.io (bom para WebSocket persistente).
+# Deploy:  cd backend && fly launch --no-deploy  (gera o app)  &&  fly deploy
+# Secrets: fly secrets set DATABASE_URL=... DATABASE_SSL=true JWT_SECRET=...
+app = "volta-backend"
+primary_region = "gru"            # São Paulo
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3001"
+  CORS_ORIGIN = "*"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

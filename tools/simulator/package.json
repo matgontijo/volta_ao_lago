@@ -1,0 +1,13 @@
+{
+  "name": "@volta/simulator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Simula veículos e trocas para demonstrar o sistema sem hardware real.",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.5"
+  }
+}

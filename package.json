@@ -1,0 +1,34 @@
+{
+  "name": "volta-ao-lago",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Logística, cronometragem e rastreamento GPS em tempo real para a ultramaratona de revezamento Volta do Lago.",
+  "workspaces": [
+    "backend",
+    "apps/mobile",
+    "apps/dashboard",
+    "tools/simulator"
+  ],
+  "scripts": {
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v && docker compose up -d",
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:mobile": "npm --workspace apps/mobile run dev",
+    "dev:dashboard": "npm --workspace apps/dashboard run dev",
+    "dev": "concurrently -n backend,mobile,dash -c blue,green,magenta \"npm:dev:backend\" \"npm:dev:mobile\" \"npm:dev:dashboard\"",
+    "sim": "node tools/simulator/index.mjs",
+    "build:route": "node tools/build-route.mjs",
+    "watchdog": "node tools/watchdog.mjs",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:logs": "pm2 logs",
+    "pm2:stop": "pm2 stop ecosystem.config.cjs",
+    "build": "npm --workspace backend run build && npm --workspace apps/mobile run build && npm --workspace apps/dashboard run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

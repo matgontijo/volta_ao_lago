@@ -1,0 +1,31 @@
+{
+  "name": "@volta/dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dashboard da organização (torre de comando) — mapa e telemetria ao vivo.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-leaflet": "^4.2.1",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.12",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.8",
+    "vite-plugin-pwa": "^0.20.5"
+  }
+}

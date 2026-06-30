@@ -1,0 +1,43 @@
+name: volta-ao-lago
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: volta_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: volta
+      POSTGRES_PASSWORD: volta
+      POSTGRES_DB: volta_ao_lago
+    ports:
+      # host 5544 para não conflitar com um Postgres local já rodando em 5432
+      - "5544:5432"
+    volumes:
+      # Os scripts em /docker-entrypoint-initdb.d rodam UMA vez, ao criar o volume.
+      # Para reaplicar (re-seed), use: npm run infra:reset
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/functions.sql:/docker-entrypoint-initdb.d/02-functions.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/03-seed.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U volta -d volta_ao_lago"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: volta_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      # host 6380 para não conflitar com um Redis local em 6379
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
