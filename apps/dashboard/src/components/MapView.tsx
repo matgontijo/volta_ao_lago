@@ -25,8 +25,9 @@ export function MapView({ pcs, positions, routePath, editMode, onMovePc }: Props
   return (
     <MapContainer center={center} zoom={12} className="map" scrollWheelZoom preferCanvas>
       <TileLayer
-        attribution='&copy; OpenStreetMap &copy; CARTO'
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        className="dark-tiles"
       />
 
       <Polyline positions={path} pathOptions={{ color: '#1f6feb', weight: 7, opacity: 0.35 }} />
