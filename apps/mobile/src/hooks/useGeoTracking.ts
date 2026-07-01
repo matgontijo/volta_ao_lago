@@ -92,6 +92,7 @@ export function useGeoTracking(socket: Socket | null, opts: Options = {}) {
 
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
+        const isFirst = latest.current === null;
         latest.current = pos;
         setLastFix({
           lat: pos.coords.latitude,
@@ -100,6 +101,23 @@ export function useGeoTracking(socket: Socket | null, opts: Options = {}) {
           speedMps: pos.coords.speed,
           ts: pos.timestamp,
         });
+        
+        if (isFirst) {
+          // Dispara imediatamente no primeiro fix de GPS!
+          const payload: PositionUpdate = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            speedMps: pos.coords.speed ?? undefined,
+            headingDeg: pos.coords.heading ?? undefined,
+            accuracyM: pos.coords.accuracy,
+            batteryPct: battery.current ?? undefined,
+            ts: Date.now(),
+          };
+          const currentSocket = socketRef.current;
+          if (currentSocket?.connected) {
+            currentSocket.emit('position:update', payload);
+          }
+        }
       },
       (err) => setError(err.message),
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 12000 },
