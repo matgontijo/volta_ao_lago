@@ -1,36 +1,31 @@
 import { useEffect, useRef } from 'react';
+import NoSleep from 'nosleep.js';
 
 /**
  * Mantém a tela acesa enquanto o tracking está ativo (celular fixado na van).
- * Reativa o lock ao voltar do segundo plano. No-op em browsers sem Wake Lock.
+ * Utiliza o NoSleep.js (que roda um micro-vídeo invisível) para garantir que
+ * o iOS Safari/Chrome não suspenda o processo e corte a conexão do WebSocket.
  */
 export function useWakeLock(active: boolean): void {
-  const sentinel = useRef<any>(null);
+  const noSleepRef = useRef<NoSleep | null>(null);
 
   useEffect(() => {
-    const nav = navigator as Navigator & { wakeLock?: any };
-    if (!active || !nav.wakeLock) return;
+    if (!active) return;
 
-    let cancelled = false;
-    const request = async () => {
-      try {
-        sentinel.current = await nav.wakeLock.request('screen');
-      } catch {
-        /* negado / sem suporte */
-      }
-    };
-    request();
+    if (!noSleepRef.current) {
+      noSleepRef.current = new NoSleep();
+    }
 
-    const onVisible = () => {
-      if (!cancelled && document.visibilityState === 'visible') request();
-    };
-    document.addEventListener('visibilitychange', onVisible);
+    const ns = noSleepRef.current;
+    
+    // Tenta ativar o lock (requer que seja engatilhado por interação do usuário,
+    // o que já acontece pois o "active" vira true no onClick do ATIVAR GPS)
+    ns.enable().catch(() => {
+      console.warn('Falha ao ativar o NoSleep');
+    });
 
     return () => {
-      cancelled = true;
-      document.removeEventListener('visibilitychange', onVisible);
-      sentinel.current?.release?.().catch(() => {});
-      sentinel.current = null;
+      ns.disable();
     };
   }, [active]);
 }
