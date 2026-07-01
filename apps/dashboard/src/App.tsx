@@ -307,9 +307,9 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
     <div className={`app ${isMobile ? 'is-mobile' : ''}`}>
       <header className="appbar">
         <div className="title">
-          <span className="logo" />
+          <img src="/logo.png" className="logo" alt="Logo" />
           <div>
-            <div className="brand-name">Volta do Lago</div>
+            <div className="brand-name">Canelas do Planalto</div>
             <div className="brand-sub">Torre de Comando</div>
           </div>
         </div>
@@ -448,8 +448,8 @@ function LoginGate({ onToken }: { onToken: (t: string) => void }) {
   return (
     <div className="gate">
       <div className="gate-card">
-        <span className="logo big" />
-        <h1>Volta do Lago</h1>
+        <img src="/logo.png" className="logo big" alt="Logo" />
+        <h1>Canelas do Planalto</h1>
         <p>Torre de Comando</p>
         {error && <div className="gate-error">{error}</div>}
         <button className="enter" disabled={busy} onClick={enter}>

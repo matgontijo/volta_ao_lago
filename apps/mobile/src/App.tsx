@@ -94,6 +94,7 @@ function IdentityScreen({ onSave }: { onSave: (name: string) => void }) {
   return (
     <div className="screen login">
       <div className="card identity-card">
+        <img src="/logo.png" width={100} alt="Logo" style={{ margin: '0 auto 10px', display: 'block' }} />
         <h2>Quem está operando?</h2>
         <p>Informe seu nome para iniciar o rastreio.</p>
         <input 

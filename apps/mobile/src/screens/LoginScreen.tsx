@@ -34,8 +34,8 @@ export function LoginScreen({ onLogin }: Props) {
   return (
     <div className="screen login">
       <div className="brand">
-        <img src="/icon.svg" width={64} height={64} alt="" />
-        <h1>Volta do Lago</h1>
+        <img src="/logo.png" width={120} alt="Logo" />
+        <h1>Canelas do Planalto</h1>
         <p>Painel do Co-piloto</p>
       </div>
 
