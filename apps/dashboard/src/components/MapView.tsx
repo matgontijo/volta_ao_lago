@@ -25,9 +25,8 @@ export function MapView({ pcs, positions, routePath, editMode, onMovePc }: Props
   return (
     <MapContainer center={center} zoom={12} className="map" scrollWheelZoom preferCanvas>
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        className="dark-tiles"
+        attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
+        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
       />
 
       <Polyline positions={path} pathOptions={{ color: '#1f6feb', weight: 7, opacity: 0.35 }} />
