@@ -26,6 +26,7 @@ async function bootstrap() {
   app.use(helmet({ 
     crossOriginResourcePolicy: false,
     contentSecurityPolicy: false,
+    referrerPolicy: false,
   }));
 
   const corsOrigin = process.env.CORS_ORIGIN ?? '*';
