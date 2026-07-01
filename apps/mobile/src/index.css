@@ -105,3 +105,8 @@ h1, .hero-athlete, .hero-timer, .brand h1, .btn { font-family: 'Sora', 'Inter', 
 .error.floating { position: fixed; bottom: 100px; left: 20px; right: 20px; text-align: center; background: rgba(251,113,133,.15); border: 1px solid rgba(251,113,133,.3); padding: 12px; border-radius: 12px; backdrop-filter: blur(8px); }
 .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); background: var(--surface-3); border: 1px solid var(--accent); color: var(--text); padding: 16px 28px; border-radius: 999px; font-weight: 800; box-shadow: 0 16px 48px rgba(0,0,0,.6), 0 0 0 2px rgba(56,224,200,0.2); white-space: nowrap; font-size: 15px; letter-spacing: 0.5px; z-index: 1000; }
 
+.gps-overlay { position: fixed; inset: 0; background: rgba(3, 5, 10, 0.85); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; }
+.gps-card { background: var(--surface); border: 1px solid var(--accent); border-radius: 24px; padding: 32px; text-align: center; box-shadow: 0 24px 64px rgba(56, 224, 200, 0.15); }
+.gps-card h2 { margin: 0 0 16px; font-size: 24px; font-weight: 800; color: #fff; }
+.gps-card p { color: var(--muted); margin: 0 0 24px; font-size: 15px; line-height: 1.5; }
+

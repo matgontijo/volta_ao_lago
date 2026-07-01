@@ -80,6 +80,19 @@ export function OperateScreen({ socket, profile, onLogout }: Props) {
 
   return (
     <div className="screen operate">
+      {!geo.tracking && (
+        <div className="gps-overlay">
+          <div className="gps-card">
+            <h2>📍 Permissão de GPS</h2>
+            <p>A Torre precisa da sua localização para o rastreio da prova.</p>
+            <button className="btn btn-primary huge" onClick={geo.start}>
+              ATIVAR GPS AGORA
+            </button>
+            {geo.error && <p className="error" style={{ marginTop: '12px' }}>{geo.error}</p>}
+          </div>
+        </div>
+      )}
+
       <header className="topbar" style={{ borderColor: state?.colorHex ?? '#1e293b' }}>
         <div>
           <strong>{profile.teamName ?? '—'}</strong>
@@ -153,7 +166,7 @@ export function OperateScreen({ socket, profile, onLogout }: Props) {
         </button>
       </footer>
 
-      {geo.error && <div className="error floating">{geo.error}</div>}
+      {geo.error && geo.tracking && <div className="error floating">{geo.error}</div>}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
