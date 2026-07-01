@@ -39,18 +39,18 @@ INSERT INTO users (id, username, password_hash, display_name, role, team_id, veh
 -- corrigido em relação à 1ª importação). PC 1..12 = pontos de coleta.
 INSERT INTO exchange_points (sequence, name, location) VALUES
   (1,  'Largada / Chegada — Lifebox Burger', ST_SetSRID(ST_MakePoint(-47.8354671, -15.8192816), 4326)),
-  (2,  'PC 1',                               ST_SetSRID(ST_MakePoint(-47.8162605, -15.8241241), 4326)),
-  (3,  'PC 2',                               ST_SetSRID(ST_MakePoint(-47.8065579, -15.8144648), 4326)),
-  (4,  'PC 3',                               ST_SetSRID(ST_MakePoint(-47.7833666, -15.7859866), 4326)),
-  (5,  'PC 4 — junção dos trechos',          ST_SetSRID(ST_MakePoint(-47.8170849, -15.7595978), 4326)),
-  (6,  'PC 5',                               ST_SetSRID(ST_MakePoint(-47.8785410, -15.7153649), 4326)),
-  (7,  'PC 6',                               ST_SetSRID(ST_MakePoint(-47.8320493, -15.7598911), 4326)),
-  (8,  'PC 7',                               ST_SetSRID(ST_MakePoint(-47.8929622, -15.7280163), 4326)),
-  (9,  'PC 8',                               ST_SetSRID(ST_MakePoint(-47.8585639, -15.7648705), 4326)),
-  (10, 'PC 9',                               ST_SetSRID(ST_MakePoint(-47.8378626, -15.7861911), 4326)),
-  (11, 'PC 10 — STJ (SAFS)',                 ST_SetSRID(ST_MakePoint(-47.8671585, -15.8080034), 4326)),
-  (12, 'PC 11 — Lago Sul',                   ST_SetSRID(ST_MakePoint(-47.8960277, -15.8412425), 4326)),
-  (13, 'PC 12 — SHIS QL 14 (aprox.)',        ST_SetSRID(ST_MakePoint(-47.8600000, -15.8290000), 4326));
+  (2,  'PC 1 — Igreja presbiteriana lago sul',       ST_SetSRID(ST_MakePoint(-47.8729706, -15.8462124), 4326)),
+  (3,  'PC 2 — Igreja Perpétuo socorro lago sul',    ST_SetSRID(ST_MakePoint(-47.8961411, -15.8412399), 4326)),
+  (4,  'PC 3 — Estacionamento do STJ',               ST_SetSRID(ST_MakePoint(-47.8650856, -15.8064833), 4326)),
+  (5,  'PC 4 — Concha acústica',                     ST_SetSRID(ST_MakePoint(-47.8378220, -15.7862043), 4326)),
+  (6,  'PC 5 — Estacionamento centro olímpico unb',  ST_SetSRID(ST_MakePoint(-47.8587227, -15.7649040), 4326)),
+  (7,  'PC 6 — Parque ecológico do lago norte',      ST_SetSRID(ST_MakePoint(-47.8929291, -15.7281866), 4326)),
+  (8,  'PC 7 — Ql igreja batista do lago',           ST_SetSRID(ST_MakePoint(-47.8322144, -15.7596302), 4326)),
+  (9,  'PC 8 — CA 3',                                ST_SetSRID(ST_MakePoint(-47.8786278, -15.7153816), 4326)),
+  (10, 'PC 9 — MIML7',                               ST_SetSRID(ST_MakePoint(-47.8171005, -15.7596121), 4326)),
+  (11, 'PC 10 — Parque urbano do Paranoá',           ST_SetSRID(ST_MakePoint(-47.7831116, -15.7863016), 4326)),
+  (12, 'PC 11 — Qi 28 conjunto 2/3',                 ST_SetSRID(ST_MakePoint(-47.8064079, -15.8146868), 4326)),
+  (13, 'PC 12 — Saída do parque ecológico copaíba',  ST_SetSRID(ST_MakePoint(-47.8159332, -15.8238792), 4326));
 
 -- --- Trechos: loop PC g -> PC g+1, distância REAL via PostGIS ---------------
 INSERT INTO legs (sequence, from_pc_id, to_pc_id, distance_m)
