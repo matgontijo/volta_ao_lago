@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function OperateScreen({ socket, profile, onLogout }: Props) {
-  const geo = useGeoTracking(socket, { autoStart: true, intervalMs: 15000 });
+  const geo = useGeoTracking(socket, { autoStart: false, intervalMs: 3000 });
   useWakeLock(geo.tracking);
 
   const [state, setState] = useState<TeamState | null>(null);
