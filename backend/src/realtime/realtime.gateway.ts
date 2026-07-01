@@ -31,6 +31,7 @@ export class RealtimeGateway
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger('WS');
   private readonly lastFlush = new Map<number, number>();
+  private readonly vehicleSockets = new Map<number, Socket>();
 
   constructor(
     private readonly auth: AuthService,
@@ -51,6 +52,11 @@ export class RealtimeGateway
         (client.handshake.query?.token as string);
       const profile = this.auth.verify(token);
       client.data.profile = profile;
+      
+      const driverName = client.handshake.query?.driverName as string;
+      if (driverName) {
+        client.data.driverName = driverName;
+      }
 
       if (profile.role === 'org') {
         client.join('dashboard');
@@ -63,8 +69,17 @@ export class RealtimeGateway
       } else if (profile.teamId) {
         client.join(`team:${profile.teamId}`);
         client.emit('team:update', await this.race.getTeamState(profile.teamId));
+        
+        if (profile.vehicleId) {
+          const existingSocket = this.vehicleSockets.get(profile.vehicleId);
+          if (existingSocket && existingSocket.id !== client.id) {
+            existingSocket.emit('auth:error', { message: 'Outro celular assumiu a transmissão deste veículo.' });
+            existingSocket.disconnect(true);
+          }
+          this.vehicleSockets.set(profile.vehicleId, client);
+        }
       }
-      this.logger.log(`+ conectado: ${profile.name} (${profile.role})`);
+      this.logger.log(`+ conectado: ${profile.name} (${profile.role}) ${driverName ? `[motorista: ${driverName}]` : ''}`);
     } catch {
       client.emit('auth:error', { message: 'Token inválido ou ausente' });
       client.disconnect(true);
@@ -73,7 +88,12 @@ export class RealtimeGateway
 
   handleDisconnect(client: Socket): void {
     const p = client.data.profile as JwtProfile | undefined;
-    if (p) this.logger.log(`- desconectado: ${p.name}`);
+    if (p) {
+      this.logger.log(`- desconectado: ${p.name}`);
+      if (p.vehicleId && this.vehicleSockets.get(p.vehicleId)?.id === client.id) {
+        this.vehicleSockets.delete(p.vehicleId);
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -92,10 +112,13 @@ export class RealtimeGateway
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     const meta = this.race.getVehicleMeta(p.vehicleId);
+    const baseTeamName = meta?.teamName ?? p.teamName ?? '';
+    const driverSuffix = client.data.driverName ? ` (${client.data.driverName})` : '';
+
     const payload: VehiclePosition = {
       vehicleId: p.vehicleId,
       teamId: p.teamId!,
-      teamName: meta?.teamName ?? p.teamName ?? '',
+      teamName: baseTeamName + driverSuffix,
       colorHex: meta?.colorHex ?? '#2563EB',
       role: meta?.role ?? p.vehicleRole,
       lat,

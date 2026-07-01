@@ -110,3 +110,7 @@ h1, .hero-athlete, .hero-timer, .brand h1, .btn { font-family: 'Sora', 'Inter', 
 .gps-card h2 { margin: 0 0 16px; font-size: 24px; font-weight: 800; color: #fff; }
 .gps-card p { color: var(--muted); margin: 0 0 24px; font-size: 15px; line-height: 1.5; }
 
+.identity-card h2 { margin: 0 0 10px; font-size: 24px; font-weight: 800; }
+.identity-card p { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.4; }
+.identity-card input { text-align: center; font-size: 18px; font-weight: 700; }
+

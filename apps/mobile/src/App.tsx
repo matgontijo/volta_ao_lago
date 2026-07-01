@@ -7,6 +7,8 @@ import { OperateScreen } from './screens/OperateScreen';
 
 const TOKEN_KEY = 'volta.token';
 const PROFILE_KEY = 'volta.profile';
+const DRIVER_KEY = 'volta.driverName';
+const DEVICE_KEY = 'volta.deviceId';
 
 export function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
@@ -14,6 +16,17 @@ export function App() {
     const raw = localStorage.getItem(PROFILE_KEY);
     return raw ? (JSON.parse(raw) as JwtProfile) : null;
   });
+  
+  const [driverName, setDriverName] = useState<string | null>(() => localStorage.getItem(DRIVER_KEY));
+  const [deviceId] = useState<string>(() => {
+    let id = localStorage.getItem(DEVICE_KEY);
+    if (!id) {
+      id = Math.random().toString(36).substring(2, 15);
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  });
+
   const [socket, setSocket] = useState<Socket | null>(null);
 
   // Link mágico / QR: ?token=... loga automaticamente e limpa a URL.
@@ -39,18 +52,21 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!token) {
+    if (!token || !driverName) {
       setSocket(null);
       return;
     }
-    const s = connectSocket(token);
-    s.on('auth:error', logout);
+    const s = connectSocket(token, driverName, deviceId);
+    s.on('auth:error', (err: any) => {
+      alert(err.message || 'Desconectado');
+      logout();
+    });
     setSocket(s);
     return () => {
       s.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, driverName]);
 
   function onLogin(t: string, p: JwtProfile) {
     localStorage.setItem(TOKEN_KEY, t);
@@ -62,12 +78,41 @@ export function App() {
   function logout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(PROFILE_KEY);
+    localStorage.removeItem(DRIVER_KEY);
     setToken(null);
     setProfile(null);
+    setDriverName(null);
   }
 
   if (!token || !profile) return <LoginScreen onLogin={onLogin} />;
+  if (!driverName) return <IdentityScreen onSave={(name) => { localStorage.setItem(DRIVER_KEY, name); setDriverName(name); }} />;
   return <OperateScreen socket={socket} profile={profile} onLogout={logout} />;
+}
+
+function IdentityScreen({ onSave }: { onSave: (name: string) => void }) {
+  const [name, setName] = useState('');
+  return (
+    <div className="screen login">
+      <div className="card identity-card">
+        <h2>Quem está operando?</h2>
+        <p>Informe seu nome para iniciar o rastreio.</p>
+        <input 
+          autoFocus
+          placeholder="Seu nome (ex: João)" 
+          value={name} 
+          onChange={e => setName(e.target.value)} 
+          onKeyDown={e => e.key === 'Enter' && name.trim() && onSave(name.trim())}
+        />
+        <button 
+          className="btn btn-primary big" 
+          disabled={!name.trim()} 
+          onClick={() => onSave(name.trim())}
+        >
+          Iniciar Rastreio
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function decodeJwt(token: string): (JwtProfile & { exp?: number }) | null {
