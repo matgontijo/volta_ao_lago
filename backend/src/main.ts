@@ -23,7 +23,10 @@ process.on('uncaughtException', (err) => {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(helmet({ crossOriginResourcePolicy: false }));
+  app.use(helmet({ 
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: false,
+  }));
 
   const corsOrigin = process.env.CORS_ORIGIN ?? '*';
   app.enableCors({
