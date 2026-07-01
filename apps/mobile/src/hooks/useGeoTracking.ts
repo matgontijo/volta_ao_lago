@@ -43,6 +43,11 @@ export function useGeoTracking(socket: Socket | null, opts: Options = {}) {
   const latest = useRef<GeolocationPosition | null>(null);
   const buffer = useRef<PositionUpdate[]>([]);
   const battery = useRef<number | null>(null);
+  const socketRef = useRef<Socket | null>(socket);
+
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
 
   // Nível de bateria (telemetria) quando a API estiver disponível.
   useEffect(() => {
@@ -60,12 +65,13 @@ export function useGeoTracking(socket: Socket | null, opts: Options = {}) {
 
   // Reenvia o buffer assim que a conexão volta.
   const flushBuffer = useCallback(() => {
-    if (!socket?.connected) return;
+    const currentSocket = socketRef.current;
+    if (!currentSocket?.connected) return;
     while (buffer.current.length > 0) {
-      socket.emit('position:update', buffer.current.shift());
+      currentSocket.emit('position:update', buffer.current.shift());
     }
     setBufferedCount(0);
-  }, [socket]);
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
@@ -111,15 +117,17 @@ export function useGeoTracking(socket: Socket | null, opts: Options = {}) {
         batteryPct: battery.current ?? undefined,
         ts: Date.now(),
       };
-      if (socket?.connected) {
-        socket.emit('position:update', payload);
+      
+      const currentSocket = socketRef.current;
+      if (currentSocket?.connected) {
+        currentSocket.emit('position:update', payload);
       } else {
         buffer.current.push(payload);
         if (buffer.current.length > 1000) buffer.current.shift(); // teto de memória
         setBufferedCount(buffer.current.length);
       }
     }, intervalMs);
-  }, [socket, intervalMs]);
+  }, [intervalMs]);
 
   const stop = useCallback(() => {
     if (watchId.current != null) {
