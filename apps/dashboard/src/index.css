@@ -220,7 +220,7 @@ h1, h2, h3, strong, .brand-name { font-family: 'Sora', 'Inter', sans-serif; }
 .enter:disabled { opacity: .5; }
 
 /* ---------- Leaflet dark tweaks ---------- */
-.dark-tiles {
+.leaflet-layer {
   filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
 }
 .leaflet-tooltip { background: #0c1322; border: 1px solid var(--line); color: var(--text); box-shadow: var(--shadow); border-radius: 8px; font-family: 'Inter', sans-serif; }
