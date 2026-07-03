@@ -5,11 +5,12 @@ import { RaceModule } from '../race/race.module';
 import { RealtimeModule } from '../realtime/realtime.module';
 import { RelayModule } from '../relay/relay.module';
 import { AdminController } from './admin.controller';
+import { ManagementController } from './management.controller';
 import { RouteService } from './route.service';
 
 @Module({
   imports: [AuthModule, RaceModule, RelayModule, RealtimeModule],
-  controllers: [AdminController],
+  controllers: [AdminController, ManagementController],
   providers: [JwtAuthGuard, RouteService],
 })
 export class AdminModule {}

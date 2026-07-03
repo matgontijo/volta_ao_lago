@@ -7,6 +7,20 @@ export interface LoginResult {
   profile: JwtProfile;
 }
 
+/** Roteirização: melhor caminho de carro da van até o próximo PC. */
+export interface DriveRoute {
+  pcName: string;
+  distanceM: number;
+  durationSec: number;
+}
+
+export async function fetchDriveRoute(teamId: number): Promise<DriveRoute | null> {
+  const res = await fetch(`${API_URL}/race/drive-route/${teamId}`);
+  if (!res.ok) return null;
+  const body = await res.text();
+  return body ? (JSON.parse(body) as DriveRoute) : null;
+}
+
 export async function login(username: string, password: string): Promise<LoginResult> {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',

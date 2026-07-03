@@ -135,3 +135,78 @@ export async function reorderPcs(token: string, order: number[]): Promise<void> 
   });
   if (!res.ok) throw new Error('Falha ao reordenar');
 }
+
+// ---------------- Roteirização (melhor caminho até o próximo PC) ----------------
+
+export interface DriveRoute {
+  teamId: number;
+  pcId: number;
+  pcName: string;
+  points: [number, number][];
+  distanceM: number;
+  durationSec: number;
+  computedAt: number;
+}
+
+export async function fetchDriveRoute(teamId: number): Promise<DriveRoute | null> {
+  const res = await fetch(`${API_URL}/race/drive-route/${teamId}`);
+  if (!res.ok) throw new Error('Falha ao calcular a rota');
+  const body = await res.text();
+  return body ? (JSON.parse(body) as DriveRoute) : null;
+}
+
+// ---------------- Gestão (equipes / atletas / logins) ----------------
+
+export interface ManagementTeam {
+  id: number;
+  name: string;
+  category: string;
+  color_hex: string;
+  athletes: { id: number; team_id: number; name: string; bib_number: number | null }[];
+  users: {
+    id: number;
+    username: string;
+    display_name: string;
+    role: string;
+    vehicle_role: 'van_pickup' | 'carro_dropoff' | null;
+  }[];
+}
+
+async function adminJson<T>(token: string, path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message ?? 'Falha na operação');
+  }
+  return res.json();
+}
+
+export const fetchManagement = (token: string) =>
+  adminJson<ManagementTeam[]>(token, '/admin/management');
+
+export const patchTeam = (token: string, id: number, patch: { name?: string; colorHex?: string }) =>
+  adminJson(token, `/admin/teams/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+
+export const addAthlete = (token: string, teamId: number, name: string, bib?: number) =>
+  adminJson(token, `/admin/teams/${teamId}/athletes`, {
+    method: 'POST',
+    body: JSON.stringify({ name, bib }),
+  });
+
+export const patchAthlete = (token: string, id: number, patch: { name?: string; bib?: number }) =>
+  adminJson(token, `/admin/athletes/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+
+export const deleteAthlete = (token: string, id: number) =>
+  adminJson(token, `/admin/athletes/${id}`, { method: 'DELETE' });
+
+export const resetUserPassword = (token: string, id: number) =>
+  adminJson<{ username: string; password: string }>(token, `/admin/users/${id}/password`, {
+    method: 'POST',
+  });

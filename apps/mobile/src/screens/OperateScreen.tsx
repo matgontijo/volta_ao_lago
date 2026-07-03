@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import { useGeoTracking } from '../hooks/useGeoTracking';
 import { useWakeLock } from '../hooks/useWakeLock';
+import { fetchDriveRoute, type DriveRoute } from '../lib/api';
 import { distanceLabel, etaLabel, paceLabel, secondsToClock } from '../lib/format';
 import type { GeofenceAlert, JwtProfile, TeamState, TrocaAck } from '../lib/types';
 import { openWaze } from '../lib/waze';
@@ -28,8 +29,29 @@ export function OperateScreen({ socket, profile, onLogout }: Props) {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [driveRoute, setDriveRoute] = useState<DriveRoute | null>(null);
 
   const isOperator = profile.role === 'operator';
+
+  // Roteirização: melhor caminho de carro até o próximo PC (atualiza a cada 30s).
+  const nextPcId = state?.nextPc?.id ?? null;
+  useEffect(() => {
+    if (!profile.teamId || nextPcId == null) {
+      setDriveRoute(null);
+      return;
+    }
+    let alive = true;
+    const load = () =>
+      fetchDriveRoute(profile.teamId!)
+        .then((r) => alive && setDriveRoute(r))
+        .catch(() => alive && setDriveRoute(null));
+    load();
+    const t = setInterval(load, 30000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [profile.teamId, nextPcId]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -165,6 +187,16 @@ export function OperateScreen({ socket, profile, onLogout }: Props) {
       </section>
 
       {alerts[0] && <div className="alert">📍 {alerts[0].message}</div>}
+
+      {driveRoute && (
+        <div className="drive-strip">
+          <span aria-hidden>🚗</span>
+          <span>
+            Melhor caminho: <b>{(driveRoute.distanceM / 1000).toFixed(1)} km</b> ·{' '}
+            <b>{Math.max(1, Math.round(driveRoute.durationSec / 60))} min</b> pelas ruas
+          </span>
+        </div>
+      )}
 
       <div className="actions">
         {isOperator &&

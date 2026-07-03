@@ -165,6 +165,40 @@ h1, h2, h3, strong, .brand-name { font-family: 'Sora', 'Inter', sans-serif; }
 .qr { width: 180px; height: 180px; border-radius: 10px; background: #fff; padding: 7px; }
 .muted { color: var(--muted); font-size: 13px; }
 
+/* ---------- Roteirização ---------- */
+.tele-row.selected { border-color: var(--gold); background: rgba(247,201,72,.07); }
+.route-chip {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 500;
+  display: flex; align-items: center; gap: 10px; max-width: 92%;
+  background: rgba(12,19,34,.94); border: 1px solid var(--gold); color: var(--text);
+  padding: 10px 14px; border-radius: 999px; font-size: 13px; box-shadow: var(--shadow);
+  backdrop-filter: blur(6px); white-space: nowrap; overflow: hidden;
+}
+.route-chip b { color: var(--gold); }
+.route-chip button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 2px; }
+.route-chip button:hover { color: var(--text); }
+
+/* ---------- Gestão ---------- */
+.mgmt-modal { max-width: 720px; }
+.mgmt-team { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 14px; }
+.mgmt-team-head { display: flex; align-items: center; gap: 10px; }
+.mgmt-team-head input[type="color"] { width: 34px; height: 34px; border: none; background: none; cursor: pointer; border-radius: 8px; padding: 0; }
+.mgmt-name { flex: 1; background: var(--bg); border: 1px solid var(--line); color: var(--text); border-radius: 9px; padding: 9px 12px; font-size: 14px; font-weight: 700; font-family: 'Sora', sans-serif; }
+.mgmt-name:focus { outline: none; border-color: var(--accent); }
+.mgmt-cat { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+.mgmt-section { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; margin: 14px 0 8px; }
+.mgmt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mgmt-list li { display: flex; align-items: center; gap: 8px; }
+.mgmt-inline { flex: 1; background: var(--bg); border: 1px solid var(--line-soft); color: var(--text); border-radius: 8px; padding: 8px 11px; font-size: 13px; }
+.mgmt-inline:focus { outline: none; border-color: var(--accent); }
+.mgmt-del { width: 30px; height: 30px; border-radius: 8px; background: rgba(251,113,133,.12); border: 1px solid rgba(251,113,133,.4); color: #fda4af; cursor: pointer; font-weight: 700; }
+.mgmt-del:hover { background: rgba(251,113,133,.25); }
+.mgmt-add { margin-top: 2px; }
+.mgmt-user { flex: 1; font-size: 13px; }
+.mgmt-user small { display: block; color: var(--muted); }
+.mgmt-pwd { font-size: 13px; color: var(--muted); }
+.mgmt-pwd b { color: var(--gold); font-family: ui-monospace, monospace; font-size: 15px; letter-spacing: 1px; }
+
 /* ---------- Course import ---------- */
 .import-modal { max-width: 760px; }
 .import-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }

@@ -116,8 +116,8 @@ export class RealtimeGateway
     const driverSuffix = client.data.driverName ? ` (${client.data.driverName})` : '';
 
     const payload: VehiclePosition = {
-      vehicleId: p.vehicleId,
-      teamId: p.teamId!,
+      vehicleId: Number(p.vehicleId),
+      teamId: Number(p.teamId),
       teamName: baseTeamName + driverSuffix,
       colorHex: meta?.colorHex ?? '#2563EB',
       role: meta?.role ?? p.vehicleRole,

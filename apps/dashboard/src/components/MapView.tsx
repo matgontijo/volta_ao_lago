@@ -9,9 +9,11 @@ interface Props {
   routePath: [number, number][] | null;
   editMode?: boolean;
   onMovePc?: (id: number, lat: number, lng: number) => void;
+  /** Roteirização: melhor caminho da van até o próximo PC (desenho âmbar). */
+  driveRoute?: [number, number][] | null;
 }
 
-export function MapView({ pcs, positions, routePath, editMode, onMovePc }: Props) {
+export function MapView({ pcs, positions, routePath, editMode, onMovePc, driveRoute }: Props) {
   const sorted = [...pcs].sort((a, b) => a.sequence - b.sequence);
 
   const straight: [number, number][] = sorted.map((p) => [p.lat, p.lng]);
@@ -31,6 +33,16 @@ export function MapView({ pcs, positions, routePath, editMode, onMovePc }: Props
 
       <Polyline positions={path} pathOptions={{ color: '#1f6feb', weight: 7, opacity: 0.35 }} />
       <Polyline positions={path} pathOptions={{ color: '#38e0c8', weight: 3, opacity: 0.95 }} />
+
+      {driveRoute && driveRoute.length > 1 && (
+        <>
+          <Polyline positions={driveRoute} pathOptions={{ color: '#0b0f1a', weight: 8, opacity: 0.6 }} />
+          <Polyline
+            positions={driveRoute}
+            pathOptions={{ color: '#f7c948', weight: 4, opacity: 0.95, dashArray: '10 8' }}
+          />
+        </>
+      )}
 
       {sorted.map((pc) => {
         const isStart = pc.sequence === 1;

@@ -3,12 +3,15 @@ import { DatabaseService } from '../database/database.service';
 import { RedisService } from '../redis/redis.service';
 import { haversineMeters } from '../common/geo';
 import {
+  DriveRoute,
   LeaderboardRow,
   NextPc,
   TeamState,
   VehiclePosition,
   VehicleRole,
 } from '../common/types';
+
+const OSRM = process.env.OSRM_URL ?? 'https://router.project-osrm.org';
 
 interface StateRow {
   team_id: number;
@@ -109,24 +112,25 @@ export class RaceService implements OnModuleInit {
          FROM vehicles v JOIN teams t ON t.id = v.team_id`,
     );
 
-    this.allVehicleIds = vehicles.rows.map((v) => v.id);
+    // Number() defensivo: ids podem chegar como string (JWTs antigos, bigint).
+    this.allVehicleIds = vehicles.rows.map((v) => Number(v.id));
     for (const v of vehicles.rows) {
-      this.vehicleMeta.set(v.id, {
-        teamId: v.team_id,
+      this.vehicleMeta.set(Number(v.id), {
+        teamId: Number(v.team_id),
         teamName: v.team_name,
         colorHex: v.color_hex,
         role: v.role,
       });
-      if (v.role === 'van_pickup') this.vanByTeam.set(v.team_id, v.id);
+      if (v.role === 'van_pickup') this.vanByTeam.set(Number(v.team_id), Number(v.id));
     }
   }
 
   getVehicleMeta(vehicleId: number): VehicleMeta | undefined {
-    return this.vehicleMeta.get(vehicleId);
+    return this.vehicleMeta.get(Number(vehicleId));
   }
 
   getNextPc(teamId: number): NextPc | null {
-    return this.nextPcByTeam.get(teamId) ?? null;
+    return this.nextPcByTeam.get(Number(teamId)) ?? null;
   }
 
   /** Limpa o cache de próximos PCs (após reset de prova). */
@@ -136,9 +140,59 @@ export class RaceService implements OnModuleInit {
     }
   }
 
+  // Roteirização: cache por equipe (20s) para não sobrecarregar o OSRM público.
+  private driveRouteCache = new Map<number, { ts: number; data: DriveRoute | null }>();
+
+  /**
+   * Melhor caminho DE CARRO (pelas ruas) da posição atual da van até o próximo
+   * PC da equipe, com distância e ETA de direção. Usado pela torre e pela van.
+   */
+  async getDriveRouteToNextPc(teamId: number): Promise<DriveRoute | null> {
+    await this.ensureLoaded();
+
+    const cached = this.driveRouteCache.get(teamId);
+    if (cached && Date.now() - cached.ts < 20000) return cached.data;
+
+    const van = await this.getLastVanLatLng(teamId);
+    let pc = this.getNextPc(teamId);
+    if (!pc) {
+      await this.refreshNextPc(teamId);
+      pc = this.getNextPc(teamId);
+    }
+    if (!van || !pc) {
+      this.driveRouteCache.set(teamId, { ts: Date.now(), data: null });
+      return null;
+    }
+
+    try {
+      const url =
+        `${OSRM}/route/v1/driving/${van.lng},${van.lat};${pc.lng},${pc.lat}` +
+        `?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      const j: any = await res.json();
+      if (j.code !== 'Ok' || !j.routes?.[0]) throw new Error(j.code);
+      const r = j.routes[0];
+      const data: DriveRoute = {
+        teamId,
+        pcId: pc.id,
+        pcName: pc.name,
+        points: r.geometry.coordinates.map(([lng, lat]: [number, number]) => [lat, lng]),
+        distanceM: Math.round(r.distance),
+        durationSec: Math.round(r.duration),
+        computedAt: Date.now(),
+      };
+      this.driveRouteCache.set(teamId, { ts: Date.now(), data });
+      return data;
+    } catch (err) {
+      this.logger.warn(`Roteirização indisponível p/ equipe ${teamId}: ${(err as Error).message}`);
+      this.driveRouteCache.set(teamId, { ts: Date.now(), data: null });
+      return null;
+    }
+  }
+
   /** Última posição conhecida da van (para failover de troca pela torre). */
   async getLastVanLatLng(teamId: number): Promise<{ lat: number; lng: number } | null> {
-    const vanId = this.vanByTeam.get(teamId);
+    const vanId = this.vanByTeam.get(Number(teamId));
     if (!vanId) return null;
     const pos = await this.redis.getJson<{ lat: number; lng: number }>(`pos:${vanId}`);
     return pos ? { lat: pos.lat, lng: pos.lng } : null;
@@ -205,7 +259,7 @@ export class RaceService implements OnModuleInit {
         WHERE le.team_id = $1 AND le.status = 'running'`,
       [teamId],
     );
-    this.nextPcByTeam.set(teamId, res.rows[0] ?? null);
+    this.nextPcByTeam.set(Number(teamId), res.rows[0] ?? null);
   }
 
   // -------------------------------------------------------------------------
@@ -232,7 +286,7 @@ export class RaceService implements OnModuleInit {
   }
 
   private async buildState(r: StateRow): Promise<TeamState> {
-    const vanId = this.vanByTeam.get(r.team_id);
+    const vanId = this.vanByTeam.get(Number(r.team_id));
     const pos = vanId ? await this.redis.getJson<CachedPos>(`pos:${vanId}`) : null;
 
     const nextPc: NextPc | null =

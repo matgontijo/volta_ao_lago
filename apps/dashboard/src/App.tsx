@@ -4,13 +4,15 @@ import { AdminPanel } from './components/AdminPanel';
 import { AlertSettings, type AlertPrefs } from './components/AlertSettings';
 import { AlertsFeed } from './components/AlertsFeed';
 import { CourseImport } from './components/CourseImport';
-import { FleetPanel } from './components/FleetPanel';
+import { FleetPanel, type ExpectedVehicle } from './components/FleetPanel';
+import { ManagementPanel } from './components/ManagementPanel';
 import { Leaderboard } from './components/Leaderboard';
 import { MapView } from './components/MapView';
 import { PointsPanel } from './components/PointsPanel';
 import { TelemetryPanel } from './components/TelemetryPanel';
 import {
   fetchBootstrap,
+  fetchDriveRoute,
   fetchReplay,
   forceTroca,
   login,
@@ -19,6 +21,7 @@ import {
   rebuildRoute,
   reorderPcs,
   resetRace,
+  type DriveRoute,
 } from './lib/api';
 import { connectSocket } from './lib/socket';
 import { beep } from './lib/sound';
@@ -61,6 +64,12 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
   const isMobile = useIsMobile();
   const [mobileTab, setMobileTab] = useState<MobileTab>('map');
   const [showActions, setShowActions] = useState(false);
+
+  // Gestão + roteirização
+  const [showMgmt, setShowMgmt] = useState(false);
+  const [routeTeamId, setRouteTeamId] = useState<number | null>(null);
+  const [driveRoute, setDriveRoute] = useState<DriveRoute | null>(null);
+  const staleAlerted = useRef<Record<number, boolean>>({});
 
   // Preferências de alerta (persistidas no navegador)
   const [showAlertSettings, setShowAlertSettings] = useState(false);
@@ -247,12 +256,96 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
     }
   }
 
+  // Roteirização: recalcula a rota da van→PC a cada 20s enquanto ativa.
+  useEffect(() => {
+    if (routeTeamId == null) {
+      setDriveRoute(null);
+      return;
+    }
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetchDriveRoute(routeTeamId);
+        if (alive) setDriveRoute(r);
+      } catch {
+        if (alive) setDriveRoute(null);
+      }
+    };
+    load();
+    const t = setInterval(load, 20000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [routeTeamId]);
+
+  // Vigia da frota: alerta (feed + bipe) quando um veículo para de transmitir
+  // além do limite configurado — e avisa quando volta.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const limitMs = prefsRef.current.staleSeconds * 1000;
+      const nowMs = Date.now();
+      for (const p of Object.values(positions)) {
+        const label = `${p.teamName} — ${p.role === 'van_pickup' ? 'Van' : 'Carro'}`;
+        const stale = nowMs - p.ts > limitMs;
+        const was = staleAlerted.current[p.vehicleId] ?? false;
+        if (stale === was) continue;
+        staleAlerted.current[p.vehicleId] = stale;
+        const alert: GeofenceAlert = {
+          teamId: p.teamId,
+          teamName: p.teamName,
+          pcName: '',
+          distanceM: 0,
+          message: stale
+            ? `⚠️ ${label} SEM SINAL há ${Math.round((nowMs - p.ts) / 1000)}s`
+            : `✅ ${label} voltou a transmitir`,
+          ts: nowMs,
+        };
+        if (stale && prefsRef.current.sound) beep(3);
+        setAlerts((prev) => [alert, ...prev].slice(0, 12));
+      }
+    }, 5000);
+    return () => clearInterval(t);
+  }, [positions]);
+
   const positionList = useMemo(() => Object.values(positions), [positions]);
   const stateList = useMemo(() => Object.values(states), [states]);
   const mapPositions = replayMode ? replayPositions : positionList;
 
-  const telemetryEl = <TelemetryPanel states={stateList} now={now} onForceTroca={onForceTroca} />;
-  const fleetEl = <FleetPanel positions={positionList} now={now} staleSeconds={alertPrefs.staleSeconds} />;
+  const expectedVehicles = useMemo<ExpectedVehicle[]>(() => {
+    if (!bootstrap) return [];
+    return bootstrap.vehicles.map((v) => {
+      const team = bootstrap.teams.find((t) => t.id === v.team_id);
+      return {
+        vehicleId: v.id,
+        teamId: v.team_id,
+        teamName: team?.name ?? `Equipe ${v.team_id}`,
+        colorHex: team?.color_hex ?? '#64748b',
+        role: v.role as ExpectedVehicle['role'],
+      };
+    });
+  }, [bootstrap]);
+
+  const telemetryEl = (
+    <TelemetryPanel
+      states={stateList}
+      now={now}
+      onForceTroca={onForceTroca}
+      selectedTeamId={routeTeamId}
+      onSelectTeam={(teamId) => {
+        setRouteTeamId((cur) => (cur === teamId ? null : teamId));
+        if (isMobile) setMobileTab('map');
+      }}
+    />
+  );
+  const fleetEl = (
+    <FleetPanel
+      positions={positionList}
+      now={now}
+      staleSeconds={alertPrefs.staleSeconds}
+      expected={expectedVehicles}
+    />
+  );
   const boardEl = <Leaderboard rows={leaderboard} />;
   const alertsEl = <AlertsFeed alerts={alerts} onOpenSettings={() => setShowAlertSettings(true)} />;
   const pointsEl = bootstrap ? (
@@ -279,6 +372,9 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
       </button>
       <button className="ctrl" onClick={() => { setShowAdmin(true); setShowActions(false); }}>
         Acessos / QR
+      </button>
+      <button className="ctrl" onClick={() => { setShowMgmt(true); setShowActions(false); }}>
+        Gestão de equipes
       </button>
       <button className="ctrl" onClick={() => { setShowAlertSettings(true); setShowActions(false); }}>
         Configurar alertas
@@ -338,9 +434,26 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
               routePath={bootstrap.routePath}
               editMode={editMode}
               onMovePc={onMovePc}
+              driveRoute={driveRoute?.points ?? null}
             />
           ) : (
             <div className="loading">Carregando percurso…</div>
+          )}
+          {routeTeamId != null && (
+            <div className="route-chip">
+              <span aria-hidden>🧭</span>
+              {driveRoute ? (
+                <span>
+                  {driveRoute.pcName} · <b>{(driveRoute.distanceM / 1000).toFixed(1)} km</b> ·{' '}
+                  <b>{Math.max(1, Math.round(driveRoute.durationSec / 60))} min</b> de carro
+                </span>
+              ) : (
+                <span>calculando melhor caminho…</span>
+              )}
+              <button onClick={() => setRouteTeamId(null)} aria-label="Fechar rota">
+                ✕
+              </button>
+            </div>
           )}
           {replayMode && (
             <div className="replay-bar">
@@ -409,6 +522,13 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
       )}
 
       {showAdmin && <AdminPanel token={token} onClose={() => setShowAdmin(false)} />}
+      {showMgmt && (
+        <ManagementPanel
+          token={token}
+          onClose={() => setShowMgmt(false)}
+          onChanged={async () => setBootstrap(await fetchBootstrap())}
+        />
+      )}
       {showImport && (
         <CourseImport
           token={token}

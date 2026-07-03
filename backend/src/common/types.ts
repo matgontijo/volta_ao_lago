@@ -85,6 +85,17 @@ export interface GeofenceAlert {
   ts: number;
 }
 
+/** Melhor caminho DE CARRO da van até o próximo PC (roteirização OSRM). */
+export interface DriveRoute {
+  teamId: number;
+  pcId: number;
+  pcName: string;
+  points: [number, number][]; // [lat, lng]
+  distanceM: number;
+  durationSec: number;
+  computedAt: number;
+}
+
 export interface TrocaResult {
   action: 'started' | 'advanced' | 'finished_race' | 'noop';
   finishedExecId: number | null;

@@ -5,6 +5,8 @@ interface Props {
   states: TeamState[];
   now: number;
   onForceTroca?: (teamId: number) => void;
+  onSelectTeam?: (teamId: number) => void; // traça a rota da van até o PC
+  selectedTeamId?: number | null;
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -13,11 +15,14 @@ const CATEGORY_LABEL: Record<string, string> = {
   misto: 'Misto',
 };
 
-export function TelemetryPanel({ states, now, onForceTroca }: Props) {
+export function TelemetryPanel({ states, now, onForceTroca, onSelectTeam, selectedTeamId }: Props) {
   const ordered = [...states].sort((a, b) => a.teamId - b.teamId);
   return (
     <div className="panel">
-      <h2><span className="h2-ico" aria-hidden>📡</span> Telemetria</h2>
+      <h2>
+        <span className="h2-ico" aria-hidden>📡</span> Telemetria
+        {onSelectTeam && <span className="h2-tag">toque = rota 🧭</span>}
+      </h2>
       <div className="tele-table">
         <div className="tele-head">
           <span>Equipe</span>
@@ -33,7 +38,12 @@ export function TelemetryPanel({ states, now, onForceTroca }: Props) {
               ? Math.floor((now - new Date(s.startedAt).getTime()) / 1000)
               : null;
           return (
-            <div className="tele-row" key={s.teamId}>
+            <div
+              className={`tele-row ${selectedTeamId === s.teamId ? 'selected' : ''}`}
+              key={s.teamId}
+              onClick={() => onSelectTeam?.(s.teamId)}
+              style={onSelectTeam ? { cursor: 'pointer' } : undefined}
+            >
               <span className="team-cell">
                 <i className="swatch" style={{ background: s.colorHex }} />
                 <span>
@@ -59,7 +69,10 @@ export function TelemetryPanel({ states, now, onForceTroca }: Props) {
                   className="force-btn"
                   title="Failover: registrar troca desta equipe pela torre"
                   disabled={s.status === 'finished'}
-                  onClick={() => onForceTroca(s.teamId)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onForceTroca(s.teamId);
+                  }}
                 >
                   forçar troca
                 </button>

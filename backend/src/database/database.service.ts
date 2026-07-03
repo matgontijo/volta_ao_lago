@@ -4,7 +4,11 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { Pool, QueryResult, QueryResultRow } from 'pg';
+import { Pool, QueryResult, QueryResultRow, types } from 'pg';
+
+// BIGINT (int8) vem como string por padrão no driver — nossos ids são pequenos,
+// então parseamos para number. Evita bugs de Map.get('1') vs Map.get(1).
+types.setTypeParser(20, (v) => parseInt(v, 10));
 
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
