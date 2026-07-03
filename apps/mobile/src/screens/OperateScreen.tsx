@@ -12,6 +12,11 @@ interface Props {
   onLogout: () => void;
 }
 
+// iPadOS moderno se identifica como Mac — checa também maxTouchPoints.
+const isIOS =
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.userAgent.includes('Mac') && navigator.maxTouchPoints > 1);
+
 export function OperateScreen({ socket, profile, onLogout }: Props) {
   const geo = useGeoTracking(socket, { autoStart: false, intervalMs: 3000 });
   useWakeLock(geo.tracking);
@@ -83,12 +88,45 @@ export function OperateScreen({ socket, profile, onLogout }: Props) {
       {!geo.tracking && (
         <div className="gps-overlay">
           <div className="gps-card">
-            <h2>📍 Permissão de GPS</h2>
-            <p>A Torre precisa da sua localização para o rastreio da prova.</p>
-            <button className="btn btn-primary huge" onClick={geo.start}>
-              ATIVAR GPS AGORA
-            </button>
-            {geo.error && <p className="error" style={{ marginTop: '12px' }}>{geo.error}</p>}
+            {geo.permission === 'denied' ? (
+              <>
+                <h2>🚫 GPS bloqueado</h2>
+                <p>
+                  A localização foi <b>negada</b> para este site. O navegador não
+                  pergunta de novo — reative manualmente:
+                </p>
+                {isIOS ? (
+                  <ol className="gps-steps">
+                    <li>Abra <b>Ajustes</b> do iPhone</li>
+                    <li><b>Privacidade e Segurança → Serviços de Localização</b></li>
+                    <li>Escolha o navegador (<b>Safari</b>/Chrome) → <b>“Ao Usar o App”</b></li>
+                    <li>No Safari: toque em <b>“aA”</b> na barra → <b>Config. do Site → Localização → Permitir</b></li>
+                    <li>Volte aqui e toque no botão abaixo</li>
+                  </ol>
+                ) : (
+                  <ol className="gps-steps">
+                    <li>Toque no <b>cadeado 🔒</b> na barra de endereço</li>
+                    <li><b>Permissões → Localização → Permitir</b></li>
+                    <li>Volte aqui e toque no botão abaixo</li>
+                  </ol>
+                )}
+                <button className="btn btn-primary huge" onClick={geo.start}>
+                  JÁ ATIVEI — TENTAR DE NOVO
+                </button>
+              </>
+            ) : (
+              <>
+                <h2>📍 Permissão de GPS</h2>
+                <p>
+                  A Torre precisa da sua localização para o rastreio da prova. Toque
+                  abaixo e escolha <b>“Permitir”</b> quando o navegador perguntar.
+                </p>
+                <button className="btn btn-primary huge" onClick={geo.start}>
+                  ATIVAR GPS AGORA
+                </button>
+                {geo.error && <p className="error" style={{ marginTop: '12px' }}>{geo.error}</p>}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -100,7 +138,9 @@ export function OperateScreen({ socket, profile, onLogout }: Props) {
         </div>
         <div className="status-dots">
           <span className={`dot ${connected ? 'ok' : 'bad'}`}>{connected ? 'online' : 'offline'}</span>
-          <span className={`dot ${geo.tracking ? 'ok' : 'idle'}`}>GPS</span>
+          <span className={`dot ${geo.permission === 'denied' ? 'bad' : geo.tracking ? 'ok' : 'idle'}`}>
+            GPS
+          </span>
         </div>
       </header>
 

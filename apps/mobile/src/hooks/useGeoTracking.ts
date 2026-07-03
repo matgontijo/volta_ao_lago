@@ -29,12 +29,15 @@ interface Options {
  * em segundo plano. Mitigação: Wake Lock (tela acesa, celular fixado na van) —
  * ver useWakeLock. Tracking 100% com app fechado exige app nativo.
  */
+export type GeoPermission = 'unknown' | 'prompt' | 'granted' | 'denied';
+
 export function useGeoTracking(socket: Socket | null, opts: Options = {}) {
   const intervalMs = opts.intervalMs ?? 5000;
 
   const [tracking, setTracking] = useState(false);
   const [lastFix, setLastFix] = useState<GeoFix | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [permission, setPermission] = useState<GeoPermission>('unknown');
   const [bufferedCount, setBufferedCount] = useState(0);
   const [batteryPct, setBatteryPct] = useState<number | null>(null);
 
@@ -48,6 +51,26 @@ export function useGeoTracking(socket: Socket | null, opts: Options = {}) {
   useEffect(() => {
     socketRef.current = socket;
   }, [socket]);
+
+  // Observa o estado da permissão de localização (quando o navegador expõe).
+  // Essencial p/ UX: se o motorista negar, mostramos como reativar.
+  useEffect(() => {
+    const nav = navigator as Navigator & { permissions?: any };
+    let status: any;
+    nav.permissions
+      ?.query?.({ name: 'geolocation' })
+      .then((st: any) => {
+        status = st;
+        setPermission(st.state as GeoPermission);
+        st.onchange = () => setPermission(st.state as GeoPermission);
+      })
+      .catch(() => {
+        /* Safari antigo não expõe — seguimos com 'unknown' */
+      });
+    return () => {
+      if (status) status.onchange = null;
+    };
+  }, []);
 
   // Nível de bateria (telemetria) quando a API estiver disponível.
   useEffect(() => {
@@ -94,6 +117,8 @@ export function useGeoTracking(socket: Socket | null, opts: Options = {}) {
       (pos) => {
         const isFirst = latest.current === null;
         latest.current = pos;
+        setPermission('granted');
+        setError(null);
         setLastFix({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
@@ -119,7 +144,26 @@ export function useGeoTracking(socket: Socket | null, opts: Options = {}) {
           }
         }
       },
-      (err) => setError(err.message),
+      (err) => {
+        if (err.code === 1) {
+          // PERMISSION_DENIED: parar limpo — o overlay de recuperação assume.
+          setPermission('denied');
+          setError('Permissão de localização negada neste navegador.');
+          if (watchId.current != null) {
+            navigator.geolocation.clearWatch(watchId.current);
+            watchId.current = null;
+          }
+          if (timerId.current != null) {
+            clearInterval(timerId.current);
+            timerId.current = null;
+          }
+          setTracking(false);
+        } else if (err.code === 2) {
+          setError('Sem sinal de GPS no momento — procurando satélites…');
+        } else {
+          setError('GPS demorou a responder — tentando de novo…');
+        }
+      },
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 12000 },
     );
 
@@ -165,5 +209,5 @@ export function useGeoTracking(socket: Socket | null, opts: Options = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { tracking, lastFix, error, bufferedCount, batteryPct, start, stop };
+  return { tracking, lastFix, error, permission, bufferedCount, batteryPct, start, stop };
 }
