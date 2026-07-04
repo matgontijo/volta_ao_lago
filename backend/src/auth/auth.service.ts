@@ -11,11 +11,17 @@ interface UserRow {
   team_name: string | null;
   vehicle_id: number | null;
   vehicle_role: JwtProfile['vehicleRole'];
+  token_version: number;
   ok: boolean;
 }
 
+/** Cache curto de token_version por usuário — evita 1 SELECT por requisição. */
+const VERSION_CACHE_TTL_MS = 30_000;
+
 @Injectable()
 export class AuthService {
+  private versionCache = new Map<number, { ver: number; ts: number }>();
+
   constructor(
     private readonly db: DatabaseService,
     private readonly jwt: JwtService,
@@ -27,6 +33,7 @@ export class AuthService {
       `SELECT u.id, u.display_name, u.role, u.team_id,
               t.name AS team_name,
               u.vehicle_id, v.role AS vehicle_role,
+              u.token_version,
               (u.password_hash = crypt($2, u.password_hash)) AS ok
          FROM users u
          LEFT JOIN teams t    ON t.id = u.team_id
@@ -40,30 +47,35 @@ export class AuthService {
       throw new UnauthorizedException('Usuário ou senha inválidos');
     }
 
-    const profile: JwtProfile = {
-      sub: row.id,
-      name: row.display_name,
-      role: row.role,
-      teamId: row.team_id,
-      teamName: row.team_name,
-      vehicleId: row.vehicle_id,
-      vehicleRole: row.vehicle_role,
-    };
-
+    const profile = this.toProfile(row);
     return { token: await this.jwt.signAsync(profile), profile };
   }
 
-  /** Usado pelo gateway WebSocket no handshake. */
-  verify(token: string): JwtProfile {
-    return this.jwt.verify<JwtProfile>(token);
+  /**
+   * Valida o JWT E a versão do token: se a senha do usuário foi trocada
+   * depois da emissão, o token é rejeitado (revogação de QR/link perdido).
+   * Usado pelo gateway WebSocket no handshake e pelo guard HTTP.
+   */
+  async verify(token: string): Promise<JwtProfile> {
+    const profile = this.jwt.verify<JwtProfile>(token);
+    const current = await this.currentTokenVersion(profile.sub);
+    // Tokens antigos (sem `ver`) valem apenas para a versão inicial (1).
+    if ((profile.ver ?? 1) !== current) {
+      throw new UnauthorizedException('Acesso revogado — peça um novo QR/senha à torre');
+    }
+    return profile;
   }
 
   /** Emite um token de login para um usuário (link mágico / QR). Sem senha. */
-  async issueTokenForUser(userId: number, expiresIn = '7d'): Promise<string> {
+  async issueTokenForUser(
+    userId: number,
+    expiresIn = '7d',
+  ): Promise<{ token: string; expiresAt: string }> {
     const res = await this.db.query<Omit<UserRow, 'ok'>>(
       `SELECT u.id, u.display_name, u.role, u.team_id,
               t.name AS team_name,
-              u.vehicle_id, v.role AS vehicle_role
+              u.vehicle_id, v.role AS vehicle_role,
+              u.token_version
          FROM users u
          LEFT JOIN teams t    ON t.id = u.team_id
          LEFT JOIN vehicles v ON v.id = u.vehicle_id
@@ -72,7 +84,31 @@ export class AuthService {
     );
     const row = res.rows[0];
     if (!row) throw new UnauthorizedException('Usuário inexistente');
-    const profile: JwtProfile = {
+    const token = await this.jwt.signAsync(this.toProfile(row), { expiresIn });
+    const { exp } = this.jwt.decode(token) as { exp: number };
+    return { token, expiresAt: new Date(exp * 1000).toISOString() };
+  }
+
+  /** Invalida imediatamente o cache de versão (após reset de senha). */
+  invalidateVersionCache(userId: number): void {
+    this.versionCache.delete(Number(userId));
+  }
+
+  private async currentTokenVersion(userId: number): Promise<number> {
+    const cached = this.versionCache.get(Number(userId));
+    if (cached && Date.now() - cached.ts < VERSION_CACHE_TTL_MS) return cached.ver;
+    const res = await this.db.query<{ token_version: number }>(
+      'SELECT token_version FROM users WHERE id = $1',
+      [userId],
+    );
+    if (res.rows.length === 0) throw new UnauthorizedException('Usuário inexistente');
+    const ver = Number(res.rows[0].token_version);
+    this.versionCache.set(Number(userId), { ver, ts: Date.now() });
+    return ver;
+  }
+
+  private toProfile(row: Omit<UserRow, 'ok'>): JwtProfile {
+    return {
       sub: row.id,
       name: row.display_name,
       role: row.role,
@@ -80,7 +116,7 @@ export class AuthService {
       teamName: row.team_name,
       vehicleId: row.vehicle_id,
       vehicleRole: row.vehicle_role,
+      ver: Number(row.token_version ?? 1),
     };
-    return this.jwt.signAsync(profile, { expiresIn });
   }
 }

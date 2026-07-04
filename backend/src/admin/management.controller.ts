@@ -1,33 +1,36 @@
+import { randomInt } from 'node:crypto';
 import {
   BadRequestException,
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   Param,
   Patch,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
+import { AuthService } from '../auth/auth.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles, RolesGuard } from '../auth/roles';
 import { DatabaseService } from '../database/database.service';
-import { JwtProfile } from '../common/types';
 
 /**
  * Gestão pela organização: equipes (nome/cor), atletas (CRUD + re-escala
  * automática do revezamento) e logins (reset de senha).
  */
 @Controller('admin')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('org')
 export class ManagementController {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly auth: AuthService,
+  ) {}
 
   /** Visão completa para o painel de gestão. */
   @Get('management')
-  async management(@Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
+  async management() {
     const [teams, athletes, users] = await Promise.all([
       this.db.query('SELECT id, name, category, color_hex FROM teams ORDER BY id'),
       this.db.query('SELECT id, team_id, name, bib_number FROM athletes ORDER BY id'),
@@ -46,12 +49,7 @@ export class ManagementController {
 
   /** Renomear equipe / trocar cor do marcador. */
   @Patch('teams/:id')
-  async patchTeam(
-    @Param('id') id: string,
-    @Body() body: { name?: string; colorHex?: string },
-    @Req() req: { user: JwtProfile },
-  ) {
-    requireOrg(req.user);
+  async patchTeam(@Param('id') id: string, @Body() body: { name?: string; colorHex?: string }) {
     if (body.name?.trim()) {
       await this.db.query('UPDATE teams SET name = $2 WHERE id = $1', [id, body.name.trim()]);
     }
@@ -63,12 +61,7 @@ export class ManagementController {
 
   /** Novo atleta (re-escala o revezamento da equipe). */
   @Post('teams/:teamId/athletes')
-  async addAthlete(
-    @Param('teamId') teamId: string,
-    @Body() body: { name?: string; bib?: number },
-    @Req() req: { user: JwtProfile },
-  ) {
-    requireOrg(req.user);
+  async addAthlete(@Param('teamId') teamId: string, @Body() body: { name?: string; bib?: number }) {
     const name = body.name?.trim();
     if (!name) throw new BadRequestException('Nome do atleta é obrigatório');
     await this.db.query(
@@ -81,12 +74,7 @@ export class ManagementController {
 
   /** Renomear atleta / trocar número. */
   @Patch('athletes/:id')
-  async patchAthlete(
-    @Param('id') id: string,
-    @Body() body: { name?: string; bib?: number },
-    @Req() req: { user: JwtProfile },
-  ) {
-    requireOrg(req.user);
+  async patchAthlete(@Param('id') id: string, @Body() body: { name?: string; bib?: number }) {
     if (body.name?.trim()) {
       await this.db.query('UPDATE athletes SET name = $2 WHERE id = $1', [id, body.name.trim()]);
     }
@@ -98,8 +86,7 @@ export class ManagementController {
 
   /** Remove atleta (bloqueia se já correu; re-escala o restante). */
   @Delete('athletes/:id')
-  async deleteAthlete(@Param('id') id: string, @Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
+  async deleteAthlete(@Param('id') id: string) {
     const used = await this.db.query(
       'SELECT 1 FROM leg_executions WHERE athlete_id = $1 LIMIT 1',
       [id],
@@ -115,16 +102,24 @@ export class ManagementController {
     return { ok: true };
   }
 
-  /** Gera uma nova senha para o usuário e a retorna UMA vez. */
+  /**
+   * Gera uma nova senha para o usuário e a retorna UMA vez. Também revoga
+   * todos os tokens/QR codes já emitidos (token_version + 1) — é o botão de
+   * pânico para celular perdido durante o evento.
+   */
   @Post('users/:id/password')
-  async resetPassword(@Param('id') id: string, @Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
+  async resetPassword(@Param('id') id: string) {
     const password = genPassword();
     const res = await this.db.query(
-      `UPDATE users SET password_hash = crypt($2, gen_salt('bf')) WHERE id = $1 RETURNING username`,
+      `UPDATE users
+          SET password_hash = crypt($2, gen_salt('bf')),
+              token_version = token_version + 1
+        WHERE id = $1
+        RETURNING username`,
       [id, password],
     );
     if (res.rows.length === 0) throw new BadRequestException('Usuário não encontrado');
+    this.auth.invalidateVersionCache(Number(id));
     return { ok: true, username: res.rows[0].username, password };
   }
 
@@ -134,24 +129,23 @@ export class ManagementController {
       await run('DELETE FROM relay_assignments WHERE team_id = $1', [teamId]);
       await run(
         `INSERT INTO relay_assignments (team_id, leg_id, athlete_id)
-         SELECT $1, l.id,
-                (SELECT a.id FROM athletes a WHERE a.team_id = $1 ORDER BY a.id
-                  OFFSET ((l.sequence - 1) % GREATEST((SELECT count(*) FROM athletes a2 WHERE a2.team_id = $1), 1))
-                  LIMIT 1)
-           FROM legs l`,
+         SELECT $1, l.id, a.id
+           FROM legs l
+           JOIN LATERAL (
+                SELECT a.id FROM athletes a WHERE a.team_id = $1 ORDER BY a.id
+                OFFSET ((l.sequence - 1) % GREATEST((SELECT count(*) FROM athletes a2 WHERE a2.team_id = $1), 1))
+                LIMIT 1
+           ) a ON TRUE`,
         [teamId],
       );
     });
   }
 }
 
-function requireOrg(user: JwtProfile): void {
-  if (user?.role !== 'org') throw new ForbiddenException('Ação restrita à organização');
-}
-
+/** Senha legível (sem 0/O/1/l/i), gerada com aleatoriedade criptográfica. */
 function genPassword(): string {
-  const chars = 'abcdefghjkmnpqrstuvwxyz23456789'; // sem 0/O/1/l/i (legível)
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
   let out = '';
-  for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 8; i++) out += chars[randomInt(chars.length)];
   return out;
 }

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import 'reflect-metadata';
 import * as path from 'path';
 import * as fs from 'fs';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const expressStatic = require('express').static;
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -23,11 +23,39 @@ process.on('uncaughtException', (err) => {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(helmet({ 
-    crossOriginResourcePolicy: false,
-    contentSecurityPolicy: false,
-    referrerPolicy: false,
-  }));
+  // CSP configurada (em vez de desligada): libera só o necessário — tiles do
+  // Esri/OSM, estilos inline do React/Leaflet e WebSocket. Se algo quebrar no
+  // deploy, o kill-switch HELMET_CSP=off volta ao comportamento antigo.
+  const cspOff = process.env.HELMET_CSP === 'off';
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: false,
+      referrerPolicy: false,
+      contentSecurityPolicy: cspOff
+        ? false
+        : {
+            useDefaults: false,
+            directives: {
+              'default-src': ["'self'"],
+              'script-src': ["'self'"],
+              'style-src': ["'self'", "'unsafe-inline'"],
+              'img-src': [
+                "'self'",
+                'data:',
+                'blob:',
+                'https://server.arcgisonline.com',
+                'https://*.tile.openstreetmap.org',
+              ],
+              'connect-src': ["'self'", 'ws:', 'wss:'],
+              'font-src': ["'self'", 'data:'],
+              'worker-src': ["'self'", 'blob:'],
+              'manifest-src': ["'self'"],
+              'object-src': ["'none'"],
+              'frame-ancestors': ["'self'"],
+            },
+          },
+    }),
+  );
 
   const corsOrigin = process.env.CORS_ORIGIN ?? '*';
   app.enableCors({

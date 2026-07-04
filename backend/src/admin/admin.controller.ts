@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   Get,
   Param,
   Post,
@@ -10,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles, RolesGuard } from '../auth/roles';
 import { DatabaseService } from '../database/database.service';
 import { RaceService } from '../race/race.service';
 import { RelayService } from '../relay/relay.service';
@@ -20,7 +20,8 @@ import { JwtProfile } from '../common/types';
 
 /** Endpoints operacionais da organização (exigem JWT de papel 'org'). */
 @Controller('admin')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('org')
 export class AdminController {
   constructor(
     private readonly db: DatabaseService,
@@ -34,21 +35,18 @@ export class AdminController {
 
   /** Configurações ajustáveis (raio do geofence etc.). */
   @Get('settings')
-  getSettings(@Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
+  getSettings() {
     return this.settings.get();
   }
 
   @Post('settings')
-  updateSettings(@Body() body: { geofenceRadiusM?: number }, @Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
+  updateSettings(@Body() body: { geofenceRadiusM?: number }) {
     return this.settings.update(body);
   }
 
   /** Roster (operadores/motoristas) para o painel de cadastro/QR. */
   @Get('users')
-  async users(@Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
+  async users() {
     const res = await this.db.query(
       `SELECT u.id, u.username, u.display_name, u.role,
               t.name AS team_name, t.color_hex, v.role AS vehicle_role
@@ -61,30 +59,23 @@ export class AdminController {
     return res.rows;
   }
 
-  /** Token de login (link mágico / QR) para um usuário. */
+  /** Token de login (link mágico / QR) para um usuário, com validade explícita. */
   @Get('magic-link/:userId')
-  async magicLink(@Param('userId') userId: string, @Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
-    const token = await this.auth.issueTokenForUser(Number(userId));
-    return { token };
+  async magicLink(@Param('userId') userId: string) {
+    const { token, expiresAt } = await this.auth.issueTokenForUser(Number(userId));
+    return { token, expiresAt };
   }
 
   /** Editor de trajeto: move um PC (drag no mapa). */
   @Post('pc/:id/move')
-  async movePc(
-    @Param('id') id: string,
-    @Body() body: { lat: number; lng: number },
-    @Req() req: { user: JwtProfile },
-  ) {
-    requireOrg(req.user);
+  async movePc(@Param('id') id: string, @Body() body: { lat: number; lng: number }) {
     await this.route.movePc(Number(id), Number(body.lat), Number(body.lng));
     return { ok: true };
   }
 
   /** Editor de trajeto: recalcula a rota nas ruas após arrastar os PCs. */
   @Post('route/rebuild')
-  async rebuildRoute(@Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
+  async rebuildRoute() {
     const result = await this.route.rebuild();
     this.gateway.pushRoute(result.points);
     return { ok: true, ...result };
@@ -92,11 +83,7 @@ export class AdminController {
 
   /** Define TODO o trajeto a partir de uma lista de pontos (cola/KML). */
   @Post('course/import')
-  async importCourse(
-    @Body() body: { points: { lat: number; lng: number; name?: string }[] },
-    @Req() req: { user: JwtProfile },
-  ) {
-    requireOrg(req.user);
+  async importCourse(@Body() body: { points: { lat: number; lng: number; name?: string }[] }) {
     const result = await this.route.importCourse(body.points ?? []);
     await this.race.reload();
     this.gateway.pushRoute(result.points);
@@ -106,8 +93,7 @@ export class AdminController {
 
   /** Editor de trajeto: otimiza automaticamente a ordem (loop sem ziguezague). */
   @Post('route/optimize')
-  async optimizeRoute(@Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
+  async optimizeRoute() {
     const result = await this.route.optimize();
     this.gateway.pushRoute(result.points);
     return { ok: true, ...result };
@@ -115,8 +101,7 @@ export class AdminController {
 
   /** Editor de trajeto: reordena a sequência dos PCs. */
   @Post('route/reorder')
-  async reorderRoute(@Body() body: { order: number[] }, @Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
+  async reorderRoute(@Body() body: { order: number[] }) {
     const result = await this.route.reorder(body.order ?? []);
     this.gateway.pushRoute(result.points);
     return { ok: true, ...result };
@@ -124,12 +109,11 @@ export class AdminController {
 
   /** Zera a prova (execuções, auditoria e rastro) para um novo start. */
   @Post('reset')
-  async reset(@Req() req: { user: JwtProfile }) {
-    requireOrg(req.user);
+  async reset() {
     await this.db.query(
       'TRUNCATE leg_executions, troca_events, position_logs RESTART IDENTITY CASCADE',
     );
-    this.race.resetCaches();
+    await this.race.resetCaches();
     await this.gateway.pushFullReset();
     return { ok: true };
   }
@@ -139,11 +123,7 @@ export class AdminController {
    * co-piloto falhe. Usa a última posição conhecida da van.
    */
   @Post('troca/:teamId')
-  async forceTroca(
-    @Param('teamId') teamId: string,
-    @Req() req: { user: JwtProfile },
-  ) {
-    requireOrg(req.user);
+  async forceTroca(@Param('teamId') teamId: string, @Req() req: { user: JwtProfile }) {
     const id = Number(teamId);
     const pos = await this.race.getLastVanLatLng(id);
     const res = await this.relay.executarTroca(
@@ -154,11 +134,5 @@ export class AdminController {
     );
     const state = await this.gateway.pushTeamUpdate(id);
     return { ok: true, action: res.action, state };
-  }
-}
-
-function requireOrg(user: JwtProfile): void {
-  if (user?.role !== 'org') {
-    throw new ForbiddenException('Ação restrita à organização');
   }
 }

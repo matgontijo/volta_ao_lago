@@ -4,23 +4,26 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { JwtProfile } from '../common/types';
+import { AuthService } from './auth.service';
 
-/** Guard HTTP simples: valida o Bearer token e injeta o perfil em req.user. */
+/**
+ * Guard HTTP: valida o Bearer token (assinatura + versão/revogação) e injeta
+ * o perfil em req.user.
+ */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly jwt: JwtService) {}
+  constructor(private readonly auth: AuthService) {}
 
-  canActivate(ctx: ExecutionContext): boolean {
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
     const header: string = req.headers['authorization'] ?? '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : null;
     if (!token) throw new UnauthorizedException('Token ausente');
     try {
-      req.user = this.jwt.verify<JwtProfile>(token);
+      req.user = await this.auth.verify(token);
       return true;
-    } catch {
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
       throw new UnauthorizedException('Token inválido');
     }
   }

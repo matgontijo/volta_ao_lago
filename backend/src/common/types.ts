@@ -11,6 +11,8 @@ export interface JwtProfile {
   teamName: string | null;
   vehicleId: number | null;
   vehicleRole: VehicleRole;
+  /** Versão do token do usuário — reset de senha invalida tokens antigos. */
+  ver?: number;
 }
 
 export interface PositionUpdate {
