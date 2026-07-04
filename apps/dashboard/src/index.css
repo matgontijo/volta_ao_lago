@@ -178,6 +178,42 @@ h1, h2, h3, strong, .brand-name { font-family: 'Sora', 'Inter', sans-serif; }
 .route-chip button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 2px; }
 .route-chip button:hover { color: var(--text); }
 
+/* ---------- Foco por equipe ---------- */
+.focus-bar {
+  position: absolute; top: 14px; left: 14px; z-index: 500;
+  display: flex; gap: 8px; align-items: center; max-width: calc(100% - 28px);
+  overflow-x: auto; padding-bottom: 2px; scrollbar-width: none;
+}
+.focus-bar::-webkit-scrollbar { display: none; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  background: rgba(12,19,34,.92); border: 1px solid var(--line); color: var(--text);
+  padding: 8px 13px; border-radius: 999px; font-size: 13px; font-weight: 700;
+  cursor: pointer; backdrop-filter: blur(6px); box-shadow: var(--shadow);
+  font-family: 'Sora', sans-serif; flex-shrink: 0;
+}
+.chip:hover { border-color: var(--accent); }
+.chip.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chip.active .swatch { outline: 2px solid rgba(0,0,0,.25); }
+.chip.follow.active { background: var(--gold); border-color: var(--gold); color: #1a1405; }
+.board li.focused { border-color: var(--gold); background: rgba(247,201,72,.07); border-radius: 8px; }
+
+/* ---------- Foco: route-chip abaixo da focus-bar ---------- */
+.route-chip { top: 60px; }
+
+/* ---------- QR: ações e status ---------- */
+.acc-qr-actions { display: flex; gap: 8px; }
+.qr-ok { color: #4ade80; font-size: 12px; }
+.qr-fail { color: var(--bad, #fb7185); font-size: 12px; }
+
+/* ---------- Login gate: inputs ---------- */
+.gate-input {
+  display: block; width: 100%; box-sizing: border-box; margin-bottom: 10px;
+  background: var(--bg); border: 1px solid var(--line); color: var(--text);
+  border-radius: 10px; padding: 12px 14px; font-size: 14px; font-family: 'Inter', sans-serif;
+}
+.gate-input:focus { outline: none; border-color: var(--accent); }
+
 /* ---------- Gestão ---------- */
 .mgmt-modal { max-width: 720px; }
 .mgmt-team { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 14px; }

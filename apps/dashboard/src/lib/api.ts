@@ -8,7 +8,12 @@ export async function login(username: string, password: string): Promise<{ token
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
   });
-  if (!res.ok) throw new Error('Falha no login');
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(
+      body?.message ?? (res.status === 401 ? 'Usuário ou senha inválidos' : 'Falha no login'),
+    );
+  }
   return res.json();
 }
 
@@ -67,12 +72,27 @@ export async function fetchUsers(token: string): Promise<RosterUser[]> {
   return res.json();
 }
 
-export async function getMagicLink(token: string, userId: number): Promise<string> {
+export async function getMagicLink(
+  token: string,
+  userId: number,
+): Promise<{ token: string; expiresAt: string }> {
   const res = await fetch(`${API_URL}/admin/magic-link/${userId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Falha ao gerar link');
-  return (await res.json()).token;
+  return res.json();
+}
+
+/** Confere no servidor se um token de QR/link mágico está válido (não vencido/revogado). */
+export async function validateMagicToken(magicToken: string): Promise<{ name: string }> {
+  const res = await fetch(`${API_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${magicToken}` },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message ?? 'Link inválido ou vencido');
+  }
+  return res.json();
 }
 
 export async function rebuildRoute(token: string): Promise<{ totalKm: number }> {

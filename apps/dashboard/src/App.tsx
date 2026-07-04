@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Socket } from 'socket.io-client';
 import { AdminPanel } from './components/AdminPanel';
 import { AlertSettings, type AlertPrefs } from './components/AlertSettings';
 import { AlertsFeed } from './components/AlertsFeed';
@@ -9,11 +8,15 @@ import { ManagementPanel } from './components/ManagementPanel';
 import { Leaderboard } from './components/Leaderboard';
 import { MapView } from './components/MapView';
 import { PointsPanel } from './components/PointsPanel';
+import { TeamFocusBar } from './components/TeamFocusBar';
 import { TelemetryPanel } from './components/TelemetryPanel';
+import { useFleetWatch } from './hooks/useFleetWatch';
+import { useIsMobile } from './hooks/useIsMobile';
+import { useRaceSocket } from './hooks/useRaceSocket';
+import { useReplay } from './hooks/useReplay';
 import {
   fetchBootstrap,
   fetchDriveRoute,
-  fetchReplay,
   forceTroca,
   login,
   movePc,
@@ -23,17 +26,7 @@ import {
   resetRace,
   type DriveRoute,
 } from './lib/api';
-import { connectSocket } from './lib/socket';
-import { beep } from './lib/sound';
-import type {
-  Bootstrap,
-  GeofenceAlert,
-  LeaderboardRow,
-  ReplayFrame,
-  Snapshot,
-  TeamState,
-  VehiclePosition,
-} from './lib/types';
+import type { Bootstrap } from './lib/types';
 
 const TOKEN_KEY = 'volta.dash.token';
 
@@ -47,11 +40,6 @@ export function App() {
 
 function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
-  const [positions, setPositions] = useState<Record<number, VehiclePosition>>({});
-  const [states, setStates] = useState<Record<number, TeamState>>({});
-  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
-  const [alerts, setAlerts] = useState<GeofenceAlert[]>([]);
-  const [connected, setConnected] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   // Editor de trajeto (arrastar PCs)
@@ -59,17 +47,12 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
   const [savingRoute, setSavingRoute] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showMgmt, setShowMgmt] = useState(false);
 
   // Mobile (torre no celular)
   const isMobile = useIsMobile();
   const [mobileTab, setMobileTab] = useState<MobileTab>('map');
   const [showActions, setShowActions] = useState(false);
-
-  // Gestão + roteirização
-  const [showMgmt, setShowMgmt] = useState(false);
-  const [routeTeamId, setRouteTeamId] = useState<number | null>(null);
-  const [driveRoute, setDriveRoute] = useState<DriveRoute | null>(null);
-  const staleAlerted = useRef<Record<number, boolean>>({});
 
   // Preferências de alerta (persistidas no navegador)
   const [showAlertSettings, setShowAlertSettings] = useState(false);
@@ -85,13 +68,24 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
     localStorage.setItem('volta.alertPrefs', JSON.stringify(alertPrefs));
   }, [alertPrefs]);
 
-  // Replay
-  const [replayMode, setReplayMode] = useState(false);
-  const [frames, setFrames] = useState<ReplayFrame[]>([]);
-  const [playing, setPlaying] = useState(false);
-  const [replayPositions, setReplayPositions] = useState<VehiclePosition[]>([]);
-  const idxRef = useRef(0);
-  const accRef = useRef<Record<number, VehiclePosition>>({});
+  // WebSocket da torre (posições, estados, leaderboard, alertas)
+  const { connected, positions, states, leaderboard, alerts, pushAlert } = useRaceSocket(token, {
+    onAuthError: onLogout,
+    onRouteUpdate: (points) =>
+      setBootstrap((prev) => (prev ? { ...prev, routePath: points } : prev)),
+    prefsRef,
+  });
+
+  // Vigia da frota: sem sinal / bateria fraca
+  useFleetWatch(positions, prefsRef, pushAlert);
+
+  // Replay pós-prova
+  const replay = useReplay();
+
+  // Foco por equipe: mapa e painéis mostram só a equipe escolhida.
+  const [focusTeamId, setFocusTeamId] = useState<number | null>(null);
+  const [followVan, setFollowVan] = useState(false);
+  const [driveRoute, setDriveRoute] = useState<DriveRoute | null>(null);
 
   useEffect(() => {
     fetchBootstrap().then(setBootstrap).catch(() => {});
@@ -102,90 +96,29 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
     return () => clearInterval(t);
   }, []);
 
+  // Roteirização da equipe em foco: recalcula a rota van→PC a cada 20s.
   useEffect(() => {
-    const s: Socket = connectSocket(token);
-    s.on('connect', () => setConnected(true));
-    s.on('disconnect', () => setConnected(false));
-    s.on('auth:error', onLogout);
-    s.on('state:snapshot', (snap: Snapshot) => {
-      setStates(indexBy(snap.states, 'teamId'));
-      setLeaderboard(snap.leaderboard);
-      setPositions(indexBy(snap.positions, 'vehicleId'));
-    });
-    s.on('vehicle:position', (p: VehiclePosition) =>
-      setPositions((prev) => ({ ...prev, [p.vehicleId]: p })),
-    );
-    s.on('team:update', (st: TeamState) =>
-      setStates((prev) => ({ ...prev, [st.teamId]: st })),
-    );
-    s.on('leaderboard:update', setLeaderboard);
-    s.on('geofence:alert', (a: GeofenceAlert) => {
-      if (!prefsRef.current.showGeofence) return;
-      if (prefsRef.current.sound) beep();
-      setAlerts((prev) => [a, ...prev].slice(0, 12));
-    });
-    s.on('route:update', (points: [number, number][]) =>
-      setBootstrap((prev) => (prev ? { ...prev, routePath: points } : prev)),
-    );
-    return () => {
-      s.close();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
-  // Animação do replay: acumula a última posição de cada veículo ao longo dos frames.
-  useEffect(() => {
-    if (!playing) return;
-    const t = setInterval(() => {
-      const f = frames;
-      if (idxRef.current >= f.length) {
-        setPlaying(false);
-        return;
-      }
-      const batch = Math.max(1, Math.ceil(f.length / 300));
-      for (let k = 0; k < batch && idxRef.current < f.length; k++) {
-        const fr = f[idxRef.current++];
-        accRef.current[fr.vehicleId] = {
-          vehicleId: fr.vehicleId,
-          teamId: fr.teamId,
-          teamName: fr.teamName,
-          colorHex: fr.colorHex,
-          role: fr.role,
-          lat: fr.lat,
-          lng: fr.lng,
-          speedMps: null,
-          headingDeg: null,
-          batteryPct: null,
-          ts: fr.ts,
-        };
-      }
-      setReplayPositions(Object.values(accRef.current));
-    }, 120);
-    return () => clearInterval(t);
-  }, [playing, frames]);
-
-  async function loadReplay() {
-    try {
-      const f = await fetchReplay();
-      if (f.length === 0) {
-        alert('Sem rastro registrado ainda. Rode a prova (ou o simulador) primeiro.');
-        return;
-      }
-      idxRef.current = 0;
-      accRef.current = {};
-      setReplayPositions([]);
-      setFrames(f);
-      setReplayMode(true);
-      setPlaying(true);
-    } catch (e) {
-      alert((e as Error).message);
+    if (focusTeamId == null) {
+      setDriveRoute(null);
+      setFollowVan(false);
+      return;
     }
-  }
-
-  function exitReplay() {
-    setReplayMode(false);
-    setPlaying(false);
-  }
+    let alive = true;
+    const load = async () => {
+      try {
+        const r = await fetchDriveRoute(focusTeamId);
+        if (alive) setDriveRoute(r);
+      } catch {
+        if (alive) setDriveRoute(null);
+      }
+    };
+    load();
+    const t = setInterval(load, 20000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [focusTeamId]);
 
   async function doReset() {
     if (!confirm('Reiniciar a prova? Isso apaga execuções, auditoria e rastro.')) return;
@@ -219,10 +152,11 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
     }
   }
 
-  async function doRebuildRoute() {
+  async function routeAction(fn: () => Promise<unknown>, confirmMsg?: string) {
+    if (confirmMsg && !confirm(confirmMsg)) return;
     setSavingRoute(true);
     try {
-      await rebuildRoute(token);
+      await fn();
       setBootstrap(await fetchBootstrap()); // PCs + km + routePath autoritativos
     } catch (e) {
       alert((e as Error).message);
@@ -231,125 +165,78 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
     }
   }
 
-  async function doOptimize() {
-    if (!confirm('Otimizar a ordem dos PCs automaticamente (loop a partir da Largada)?')) return;
-    setSavingRoute(true);
-    try {
-      await optimizeRoute(token);
-      setBootstrap(await fetchBootstrap());
-    } catch (e) {
-      alert((e as Error).message);
-    } finally {
-      setSavingRoute(false);
-    }
-  }
-
-  async function onReorderPcs(order: number[]) {
-    setSavingRoute(true);
-    try {
-      await reorderPcs(token, order);
-      setBootstrap(await fetchBootstrap());
-    } catch (e) {
-      alert((e as Error).message);
-    } finally {
-      setSavingRoute(false);
-    }
-  }
-
-  // Roteirização: recalcula a rota da van→PC a cada 20s enquanto ativa.
-  useEffect(() => {
-    if (routeTeamId == null) {
-      setDriveRoute(null);
-      return;
-    }
-    let alive = true;
-    const load = async () => {
-      try {
-        const r = await fetchDriveRoute(routeTeamId);
-        if (alive) setDriveRoute(r);
-      } catch {
-        if (alive) setDriveRoute(null);
-      }
-    };
-    load();
-    const t = setInterval(load, 20000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, [routeTeamId]);
-
-  // Vigia da frota: alerta (feed + bipe) quando um veículo para de transmitir
-  // além do limite configurado — e avisa quando volta.
-  useEffect(() => {
-    const t = setInterval(() => {
-      const limitMs = prefsRef.current.staleSeconds * 1000;
-      const nowMs = Date.now();
-      for (const p of Object.values(positions)) {
-        const label = `${p.teamName} — ${p.role === 'van_pickup' ? 'Van' : 'Carro'}`;
-        const stale = nowMs - p.ts > limitMs;
-        const was = staleAlerted.current[p.vehicleId] ?? false;
-        if (stale === was) continue;
-        staleAlerted.current[p.vehicleId] = stale;
-        const alert: GeofenceAlert = {
-          teamId: p.teamId,
-          teamName: p.teamName,
-          pcName: '',
-          distanceM: 0,
-          message: stale
-            ? `⚠️ ${label} SEM SINAL há ${Math.round((nowMs - p.ts) / 1000)}s`
-            : `✅ ${label} voltou a transmitir`,
-          ts: nowMs,
-        };
-        if (stale && prefsRef.current.sound) beep(3);
-        setAlerts((prev) => [alert, ...prev].slice(0, 12));
-      }
-    }, 5000);
-    return () => clearInterval(t);
-  }, [positions]);
-
   const positionList = useMemo(() => Object.values(positions), [positions]);
   const stateList = useMemo(() => Object.values(states), [states]);
-  const mapPositions = replayMode ? replayPositions : positionList;
+
+  // Foco: filtra o que aparece no mapa e nos painéis.
+  const visiblePositions = useMemo(
+    () => (focusTeamId == null ? positionList : positionList.filter((p) => p.teamId === focusTeamId)),
+    [positionList, focusTeamId],
+  );
+  const visibleStates = useMemo(
+    () => (focusTeamId == null ? stateList : stateList.filter((s) => s.teamId === focusTeamId)),
+    [stateList, focusTeamId],
+  );
+  const mapPositions = replay.replayMode ? replay.replayPositions : visiblePositions;
+
+  // "Seguir van": centraliza o mapa na van da equipe em foco (fallback: carro).
+  const followPos = useMemo<[number, number] | null>(() => {
+    if (!followVan || focusTeamId == null || replay.replayMode) return null;
+    const van =
+      visiblePositions.find((p) => p.role === 'van_pickup') ?? visiblePositions[0] ?? null;
+    return van ? [van.lat, van.lng] : null;
+  }, [followVan, focusTeamId, visiblePositions, replay.replayMode]);
 
   const expectedVehicles = useMemo<ExpectedVehicle[]>(() => {
     if (!bootstrap) return [];
-    return bootstrap.vehicles.map((v) => {
-      const team = bootstrap.teams.find((t) => t.id === v.team_id);
-      return {
-        vehicleId: v.id,
-        teamId: v.team_id,
-        teamName: team?.name ?? `Equipe ${v.team_id}`,
-        colorHex: team?.color_hex ?? '#64748b',
-        role: v.role as ExpectedVehicle['role'],
-      };
-    });
-  }, [bootstrap]);
+    return bootstrap.vehicles
+      .filter((v) => focusTeamId == null || v.team_id === focusTeamId)
+      .map((v) => {
+        const team = bootstrap.teams.find((t) => t.id === v.team_id);
+        return {
+          vehicleId: v.id,
+          teamId: v.team_id,
+          teamName: team?.name ?? `Equipe ${v.team_id}`,
+          colorHex: team?.color_hex ?? '#64748b',
+          role: v.role as ExpectedVehicle['role'],
+        };
+      });
+  }, [bootstrap, focusTeamId]);
+
+  function toggleFocus(teamId: number | null) {
+    setFocusTeamId((cur) => (teamId != null && cur === teamId ? null : teamId));
+  }
 
   const telemetryEl = (
     <TelemetryPanel
-      states={stateList}
+      states={visibleStates}
       now={now}
       onForceTroca={onForceTroca}
-      selectedTeamId={routeTeamId}
+      selectedTeamId={focusTeamId}
       onSelectTeam={(teamId) => {
-        setRouteTeamId((cur) => (cur === teamId ? null : teamId));
+        toggleFocus(teamId);
         if (isMobile) setMobileTab('map');
       }}
     />
   );
   const fleetEl = (
     <FleetPanel
-      positions={positionList}
+      positions={visiblePositions}
       now={now}
       staleSeconds={alertPrefs.staleSeconds}
       expected={expectedVehicles}
     />
   );
-  const boardEl = <Leaderboard rows={leaderboard} />;
+  const boardEl = (
+    <Leaderboard rows={leaderboard} focusTeamId={focusTeamId} onSelectTeam={toggleFocus} />
+  );
   const alertsEl = <AlertsFeed alerts={alerts} onOpenSettings={() => setShowAlertSettings(true)} />;
   const pointsEl = bootstrap ? (
-    <PointsPanel pcs={bootstrap.exchangePoints} editMode={editMode} onReorder={onReorderPcs} />
+    <PointsPanel
+      pcs={bootstrap.exchangePoints}
+      editMode={editMode}
+      onReorder={(order) => routeAction(() => reorderPcs(token, order))}
+    />
   ) : null;
 
   const actionButtons = (
@@ -359,10 +246,19 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
           <button className="ctrl primary" onClick={() => { setShowImport(true); setShowActions(false); }}>
             📌 Definir trajeto
           </button>
-          <button className="ctrl" disabled={savingRoute} onClick={doOptimize}>
+          <button
+            className="ctrl"
+            disabled={savingRoute}
+            onClick={() =>
+              routeAction(
+                () => optimizeRoute(token),
+                'Otimizar a ordem dos PCs automaticamente (loop a partir da Largada)?',
+              )
+            }
+          >
             {savingRoute ? '…' : '✨ Otimizar ordem'}
           </button>
-          <button className="ctrl" disabled={savingRoute} onClick={doRebuildRoute}>
+          <button className="ctrl" disabled={savingRoute} onClick={() => routeAction(() => rebuildRoute(token))}>
             Recalcular rota
           </button>
         </>
@@ -379,8 +275,14 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
       <button className="ctrl" onClick={() => { setShowAlertSettings(true); setShowActions(false); }}>
         Configurar alertas
       </button>
-      <button className="ctrl" onClick={() => { (replayMode ? exitReplay : loadReplay)(); setShowActions(false); }}>
-        {replayMode ? 'Sair do replay' : 'Replay'}
+      <button
+        className="ctrl"
+        onClick={() => {
+          (replay.replayMode ? replay.exitReplay : replay.loadReplay)();
+          setShowActions(false);
+        }}
+      >
+        {replay.replayMode ? 'Sair do replay' : 'Replay'}
       </button>
       <button className="ctrl danger" onClick={doReset}>
         Reiniciar prova
@@ -427,6 +329,15 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
 
       <div className="layout">
         <main className="map-wrap">
+          {bootstrap && (
+            <TeamFocusBar
+              teams={bootstrap.teams}
+              focusTeamId={focusTeamId}
+              onFocus={toggleFocus}
+              follow={followVan}
+              onFollow={setFollowVan}
+            />
+          )}
           {bootstrap ? (
             <MapView
               pcs={bootstrap.exchangePoints}
@@ -435,11 +346,12 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
               editMode={editMode}
               onMovePc={onMovePc}
               driveRoute={driveRoute?.points ?? null}
+              followPos={followPos}
             />
           ) : (
             <div className="loading">Carregando percurso…</div>
           )}
-          {routeTeamId != null && (
+          {focusTeamId != null && (
             <div className="route-chip">
               <span aria-hidden>🧭</span>
               {driveRoute ? (
@@ -450,19 +362,19 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
               ) : (
                 <span>calculando melhor caminho…</span>
               )}
-              <button onClick={() => setRouteTeamId(null)} aria-label="Fechar rota">
+              <button onClick={() => toggleFocus(null)} aria-label="Fechar rota">
                 ✕
               </button>
             </div>
           )}
-          {replayMode && (
+          {replay.replayMode && (
             <div className="replay-bar">
               <strong>REPLAY</strong>
-              <button className="ctrl" onClick={() => setPlaying((p) => !p)}>
-                {playing ? 'Pausar' : 'Play'}
+              <button className="ctrl" onClick={() => replay.setPlaying((p) => !p)}>
+                {replay.playing ? 'Pausar' : 'Play'}
               </button>
               <span>
-                {Math.min(idxRef.current, frames.length)} / {frames.length} pontos
+                {Math.min(replay.idxRef.current, replay.frames.length)} / {replay.frames.length} pontos
               </span>
             </div>
           )}
@@ -549,6 +461,8 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
 }
 
 function LoginGate({ onToken }: { onToken: (t: string) => void }) {
+  const [username, setUsername] = useState('torre');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -556,10 +470,10 @@ function LoginGate({ onToken }: { onToken: (t: string) => void }) {
     setBusy(true);
     setError(null);
     try {
-      const { token } = await login('torre', 'volta2026');
+      const { token } = await login(username.trim(), password);
       onToken(token);
     } catch (e) {
-      setError((e as Error).message + ' — o backend está rodando?');
+      setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -571,31 +485,30 @@ function LoginGate({ onToken }: { onToken: (t: string) => void }) {
         <img src="/logo.png" className="logo big" alt="Logo" />
         <h1>Canelas do Planalto</h1>
         <p>Torre de Comando</p>
+        <input
+          className="gate-input"
+          value={username}
+          autoCapitalize="none"
+          autoComplete="username"
+          placeholder="Usuário"
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <input
+          className="gate-input"
+          type="password"
+          value={password}
+          autoComplete="current-password"
+          placeholder="Senha"
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && username.trim() && password && enter()}
+        />
         {error && <div className="gate-error">{error}</div>}
-        <button className="enter" disabled={busy} onClick={enter}>
-          {busy ? 'Entrando…' : 'Entrar (torre / volta2026)'}
+        <button className="enter" disabled={busy || !username.trim() || !password} onClick={enter}>
+          {busy ? 'Entrando…' : 'Entrar'}
         </button>
       </div>
     </div>
   );
 }
 
-function indexBy<T, K extends keyof T>(arr: T[], key: K): Record<string, T> {
-  const out: Record<string, T> = {};
-  for (const item of arr) out[String(item[key])] = item;
-  return out;
-}
-
 type MobileTab = 'map' | 'teams' | 'fleet' | 'points' | 'alerts';
-
-function useIsMobile(breakpoint = 820): boolean {
-  const [mobile, setMobile] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth <= breakpoint,
-  );
-  useEffect(() => {
-    const onResize = () => setMobile(window.innerWidth <= breakpoint);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [breakpoint]);
-  return mobile;
-}

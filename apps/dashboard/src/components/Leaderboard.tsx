@@ -1,13 +1,24 @@
 import { distanceLabel } from '../lib/format';
 import type { LeaderboardRow } from '../lib/types';
 
-export function Leaderboard({ rows }: { rows: LeaderboardRow[] }) {
+interface Props {
+  rows: LeaderboardRow[];
+  focusTeamId?: number | null;
+  onSelectTeam?: (teamId: number) => void;
+}
+
+export function Leaderboard({ rows, focusTeamId, onSelectTeam }: Props) {
   return (
     <div className="panel">
       <h2><span className="h2-ico" aria-hidden>🏆</span> Classificação</h2>
       <ol className="board">
         {rows.map((r) => (
-          <li key={r.teamId}>
+          <li
+            key={r.teamId}
+            className={focusTeamId === r.teamId ? 'focused' : ''}
+            onClick={() => onSelectTeam?.(r.teamId)}
+            style={onSelectTeam ? { cursor: 'pointer' } : undefined}
+          >
             <span className={`rank rank-${r.rank}`}>{r.rank}</span>
             <i className="swatch" style={{ background: r.colorHex }} />
             <span className="board-team">{r.teamName}</span>

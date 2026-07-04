@@ -21,7 +21,7 @@ export function TelemetryPanel({ states, now, onForceTroca, onSelectTeam, select
     <div className="panel">
       <h2>
         <span className="h2-ico" aria-hidden>📡</span> Telemetria
-        {onSelectTeam && <span className="h2-tag">toque = rota 🧭</span>}
+        {onSelectTeam && <span className="h2-tag">toque = foco 🎯</span>}
       </h2>
       <div className="tele-table">
         <div className="tele-head">

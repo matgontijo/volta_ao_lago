@@ -1,6 +1,15 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip } from 'react-leaflet';
+import { useEffect } from 'react';
+import {
+  CircleMarker,
+  MapContainer,
+  Marker,
+  Polyline,
+  TileLayer,
+  Tooltip,
+  useMap,
+} from 'react-leaflet';
 import type { ExchangePoint, VehiclePosition } from '../lib/types';
 
 interface Props {
@@ -11,9 +20,20 @@ interface Props {
   onMovePc?: (id: number, lat: number, lng: number) => void;
   /** Roteirização: melhor caminho da van até o próximo PC (desenho âmbar). */
   driveRoute?: [number, number][] | null;
+  /** Modo "seguir van": o mapa acompanha esta posição a cada atualização. */
+  followPos?: [number, number] | null;
 }
 
-export function MapView({ pcs, positions, routePath, editMode, onMovePc, driveRoute }: Props) {
+/** Acompanha a posição alvo sem resetar o zoom escolhido pelo operador. */
+function FollowCamera({ pos }: { pos: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    map.panTo(pos, { animate: true });
+  }, [map, pos[0], pos[1]]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
+export function MapView({ pcs, positions, routePath, editMode, onMovePc, driveRoute, followPos }: Props) {
   const sorted = [...pcs].sort((a, b) => a.sequence - b.sequence);
 
   const straight: [number, number][] = sorted.map((p) => [p.lat, p.lng]);
@@ -30,6 +50,7 @@ export function MapView({ pcs, positions, routePath, editMode, onMovePc, driveRo
         attribution='&copy; <a href="https://www.esri.com/">Esri</a>'
         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
       />
+      {followPos && <FollowCamera pos={followPos} />}
 
       <Polyline positions={path} pathOptions={{ color: '#1f6feb', weight: 7, opacity: 0.35 }} />
       <Polyline positions={path} pathOptions={{ color: '#38e0c8', weight: 3, opacity: 0.95 }} />
