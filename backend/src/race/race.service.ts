@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { RedisService } from '../redis/redis.service';
 import { haversineMeters } from '../common/geo';
+import { computeAvgPaceSecPerKm, computeEtaSeconds } from '../common/pace';
 import {
   DriveRoute,
   LeaderboardRow,
@@ -12,6 +13,9 @@ import {
 } from '../common/types';
 
 const OSRM = process.env.OSRM_URL ?? 'https://router.project-osrm.org';
+
+// TTL do "próximo PC" no Redis: 48h cobre qualquer prova; renovado a cada troca.
+const NEXTPC_TTL_S = 48 * 3600;
 
 interface StateRow {
   team_id: number;
@@ -129,14 +133,27 @@ export class RaceService implements OnModuleInit {
     return this.vehicleMeta.get(Number(vehicleId));
   }
 
-  getNextPc(teamId: number): NextPc | null {
+  /**
+   * Próximo PC da equipe (para geofence). Com Redis, a leitura é compartilhada
+   * entre instâncias — a troca processada em um nó atualiza o geofence de todos.
+   * Sem Redis (single-instance), cai no cache em memória.
+   */
+  async getNextPc(teamId: number): Promise<NextPc | null> {
+    if (this.redis.enabled) {
+      const wrapper = await this.redis.getJson<{ pc: NextPc | null }>(`nextpc:${teamId}`);
+      if (wrapper) return wrapper.pc;
+      await this.refreshNextPc(teamId);
+      const fresh = await this.redis.getJson<{ pc: NextPc | null }>(`nextpc:${teamId}`);
+      return fresh?.pc ?? null;
+    }
     return this.nextPcByTeam.get(Number(teamId)) ?? null;
   }
 
-  /** Limpa o cache de próximos PCs (após reset de prova). */
-  resetCaches(): void {
+  /** Limpa o cache de próximos PCs (após reset de prova) — memória e Redis. */
+  async resetCaches(): Promise<void> {
     for (const teamId of this.nextPcByTeam.keys()) {
       this.nextPcByTeam.set(teamId, null);
+      await this.redis.setJson(`nextpc:${teamId}`, { pc: null }, NEXTPC_TTL_S);
     }
   }
 
@@ -154,10 +171,10 @@ export class RaceService implements OnModuleInit {
     if (cached && Date.now() - cached.ts < 20000) return cached.data;
 
     const van = await this.getLastVanLatLng(teamId);
-    let pc = this.getNextPc(teamId);
+    let pc = await this.getNextPc(teamId);
     if (!pc) {
       await this.refreshNextPc(teamId);
-      pc = this.getNextPc(teamId);
+      pc = await this.getNextPc(teamId);
     }
     if (!van || !pc) {
       this.driveRouteCache.set(teamId, { ts: Date.now(), data: null });
@@ -168,7 +185,9 @@ export class RaceService implements OnModuleInit {
       const url =
         `${OSRM}/route/v1/driving/${van.lng},${van.lat};${pc.lng},${pc.lat}` +
         `?overview=full&geometries=geojson`;
-      const res = await fetch(url);
+      // Timeout: o OSRM público pode ficar lento/indisponível — um request
+      // pendurado não pode segurar o handler indefinidamente.
+      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
       const j: any = await res.json();
       if (j.code !== 'Ok' || !j.routes?.[0]) throw new Error(j.code);
       const r = j.routes[0];
@@ -259,7 +278,9 @@ export class RaceService implements OnModuleInit {
         WHERE le.team_id = $1 AND le.status = 'running'`,
       [teamId],
     );
-    this.nextPcByTeam.set(Number(teamId), res.rows[0] ?? null);
+    const pc = res.rows[0] ?? null;
+    this.nextPcByTeam.set(Number(teamId), pc);
+    await this.redis.setJson(`nextpc:${teamId}`, { pc }, NEXTPC_TTL_S);
   }
 
   // -------------------------------------------------------------------------
@@ -301,23 +322,18 @@ export class RaceService implements OnModuleInit {
       ? Math.max(0, Math.floor((Date.now() - new Date(r.started_at).getTime()) / 1000))
       : 0;
 
-    const avgPaceSecPerKm =
-      r.done_distance_m > 0 ? (r.done_seconds / (r.done_distance_m / 1000)) : null;
+    const avgPaceSecPerKm = computeAvgPaceSecPerKm(r.done_distance_m, r.done_seconds);
 
     const distanceToNextPcM =
       pos && nextPc ? Math.round(haversineMeters(pos, nextPc)) : null;
 
     // Projeção de ETA: pace médio acumulado; fallback na velocidade instantânea.
-    let etaSeconds: number | null = null;
-    if (distanceToNextPcM != null) {
-      const paceSecPerM =
-        r.done_distance_m > 0
-          ? r.done_seconds / r.done_distance_m
-          : pos && pos.speedMps && pos.speedMps > 0.5
-            ? 1 / pos.speedMps
-            : 1 / 2.8; // ~10,1 km/h default
-      etaSeconds = Math.round(distanceToNextPcM * paceSecPerM);
-    }
+    const etaSeconds = computeEtaSeconds({
+      distanceToNextPcM,
+      doneDistanceM: r.done_distance_m,
+      doneSeconds: r.done_seconds,
+      speedMps: pos?.speedMps ?? null,
+    });
 
     return {
       teamId: r.team_id,

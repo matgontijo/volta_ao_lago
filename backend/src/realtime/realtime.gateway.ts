@@ -16,6 +16,7 @@ import { RedisService } from '../redis/redis.service';
 import { RelayService } from '../relay/relay.service';
 import { SettingsService } from '../settings/settings.service';
 import { haversineMeters } from '../common/geo';
+import { sanitizeDriverName } from '../common/sanitize';
 import {
   GeofenceAlert,
   JwtProfile,
@@ -31,7 +32,6 @@ export class RealtimeGateway
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger('WS');
   private readonly lastFlush = new Map<number, number>();
-  private readonly vehicleSockets = new Map<number, Socket>();
 
   constructor(
     private readonly auth: AuthService,
@@ -50,13 +50,12 @@ export class RealtimeGateway
       const token =
         (client.handshake.auth?.token as string) ||
         (client.handshake.query?.token as string);
-      const profile = this.auth.verify(token);
+      // Valida assinatura, expiração E revogação (token_version).
+      const profile = await this.auth.verify(token);
       client.data.profile = profile;
-      
-      const driverName = client.handshake.query?.driverName as string;
-      if (driverName) {
-        client.data.driverName = driverName;
-      }
+
+      const driverName = sanitizeDriverName(client.handshake.query?.driverName);
+      if (driverName) client.data.driverName = driverName;
 
       if (profile.role === 'org') {
         client.join('dashboard');
@@ -69,31 +68,34 @@ export class RealtimeGateway
       } else if (profile.teamId) {
         client.join(`team:${profile.teamId}`);
         client.emit('team:update', await this.race.getTeamState(profile.teamId));
-        
+
         if (profile.vehicleId) {
-          const existingSocket = this.vehicleSockets.get(profile.vehicleId);
-          if (existingSocket && existingSocket.id !== client.id) {
-            existingSocket.emit('auth:error', { message: 'Outro celular assumiu a transmissão deste veículo.' });
-            existingSocket.disconnect(true);
-          }
-          this.vehicleSockets.set(profile.vehicleId, client);
+          // Um celular por veículo, via room: com o Redis adapter o takeover
+          // funciona mesmo com o socket antigo em OUTRA instância do backend.
+          const room = `vehicle:${profile.vehicleId}`;
+          this.server.to(room).emit('auth:error', {
+            message: 'Outro celular assumiu a transmissão deste veículo.',
+          });
+          this.server.in(room).disconnectSockets(true);
+          client.join(room);
         }
       }
-      this.logger.log(`+ conectado: ${profile.name} (${profile.role}) ${driverName ? `[motorista: ${driverName}]` : ''}`);
-    } catch {
-      client.emit('auth:error', { message: 'Token inválido ou ausente' });
+      this.logger.log(
+        `+ conectado: ${profile.name} (${profile.role}) ${driverName ? `[motorista: ${driverName}]` : ''}`,
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message.includes('revogado')
+          ? err.message
+          : 'Token inválido ou ausente';
+      client.emit('auth:error', { message });
       client.disconnect(true);
     }
   }
 
   handleDisconnect(client: Socket): void {
     const p = client.data.profile as JwtProfile | undefined;
-    if (p) {
-      this.logger.log(`- desconectado: ${p.name}`);
-      if (p.vehicleId && this.vehicleSockets.get(p.vehicleId)?.id === client.id) {
-        this.vehicleSockets.delete(p.vehicleId);
-      }
-    }
+    if (p) this.logger.log(`- desconectado: ${p.name}`);
   }
 
   // -------------------------------------------------------------------------
@@ -153,20 +155,28 @@ export class RealtimeGateway
 
     const lat = Number(data?.lat);
     const lng = Number(data?.lng);
-    const res = await this.relay.executarTroca(
-      p.teamId,
-      Number.isFinite(lat) ? lat : 0,
-      Number.isFinite(lng) ? lng : 0,
-      p.sub,
-    );
+    try {
+      const res = await this.relay.executarTroca(
+        p.teamId,
+        Number.isFinite(lat) ? lat : 0,
+        Number.isFinite(lng) ? lng : 0,
+        p.sub,
+      );
 
-    if (res.action === 'noop') return { ok: true, action: 'noop' };
+      if (res.action === 'noop') return { ok: true, action: 'noop' };
 
-    const state = await this.pushTeamUpdate(p.teamId);
-    this.logger.log(
-      `TROCA ${state?.teamName}: ${res.action} (trecho ${res.currentLegSeq ?? '-'} / ${res.currentAthleteName ?? '-'})`,
-    );
-    return { ok: true, action: res.action, state };
+      const state = await this.pushTeamUpdate(p.teamId);
+      this.logger.log(
+        `TROCA ${state?.teamName}: ${res.action} (trecho ${res.currentLegSeq ?? '-'} / ${res.currentAthleteName ?? '-'})`,
+      );
+      return { ok: true, action: res.action, state };
+    } catch (err) {
+      // Erro do banco (ex.: equipe sem atleta escalado) vira mensagem amigável
+      // no ACK — sem isso o celular ficaria esperando um ACK que nunca chega.
+      const message = err instanceof Error ? err.message : 'Falha ao registrar a troca';
+      this.logger.error(`TROCA falhou (equipe ${p.teamId}): ${message}`);
+      return { ok: false, error: message };
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -199,7 +209,7 @@ export class RealtimeGateway
   // Geofence: alerta quando a van entra no raio do próximo PC (debounce Redis).
   // -------------------------------------------------------------------------
   private async checkGeofence(p: JwtProfile, pos: VehiclePosition): Promise<void> {
-    const nextPc = this.race.getNextPc(p.teamId!);
+    const nextPc = await this.race.getNextPc(p.teamId!);
     if (!nextPc) return;
     const d = haversineMeters(pos, nextPc);
     if (d > this.settings.get().geofenceRadiusM) return;
