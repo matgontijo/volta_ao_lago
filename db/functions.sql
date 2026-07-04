@@ -12,6 +12,11 @@
 --   'advanced'       -> troca normal (fechou um, abriu o próximo)
 --   'finished_race'  -> fechou o último trecho; equipe concluiu a volta
 --   'noop'           -> clique duplicado/concorrente; nada a fazer (idempotente)
+--
+-- Concorrência: cliques duplicados no MEIO da prova são serializados pelo
+-- FOR UPDATE. Na LARGADA não há linha para travar — dois cliques simultâneos
+-- podem ambos tentar inserir o trecho 1; o índice único derruba o segundo com
+-- unique_violation, que é capturada e devolvida como 'noop' (idempotente).
 -- ============================================================================
 CREATE OR REPLACE FUNCTION executar_troca(
     p_team_id BIGINT,
@@ -95,11 +100,23 @@ BEGIN
       JOIN athletes a ON a.id = ra.athlete_id
      WHERE ra.team_id = p_team_id AND ra.leg_id = v_leg.id;
 
-    INSERT INTO leg_executions
-        (team_id, leg_id, athlete_id, status, started_at, start_location, created_by)
-    VALUES
-        (p_team_id, v_leg.id, v_ath_id, 'running', now(), v_point, p_user_id)
-    RETURNING id INTO v_new_id;
+    IF v_ath_id IS NULL THEN
+        RAISE EXCEPTION 'Equipe sem atleta escalado para o trecho % — cadastre os atletas na Gestão de equipes.', v_next_seq;
+    END IF;
+
+    BEGIN
+        INSERT INTO leg_executions
+            (team_id, leg_id, athlete_id, status, started_at, start_location, created_by)
+        VALUES
+            (p_team_id, v_leg.id, v_ath_id, 'running', now(), v_point, p_user_id)
+        RETURNING id INTO v_new_id;
+    EXCEPTION WHEN unique_violation THEN
+        -- Largada concorrente (ou clique duplicado): outra transação abriu o
+        -- trecho primeiro. Idempotente: devolve noop em vez de estourar erro.
+        action := 'noop';
+        RETURN NEXT;
+        RETURN;
+    END;
 
     INSERT INTO troca_events(team_id, finished_exec, new_exec, action, created_by, location)
     VALUES (p_team_id, v_fin_id, v_new_id,

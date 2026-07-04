@@ -63,8 +63,13 @@ CREATE TABLE IF NOT EXISTS users (
     display_name  TEXT NOT NULL,
     role          user_role NOT NULL,
     team_id       BIGINT REFERENCES teams(id) ON DELETE SET NULL,
-    vehicle_id    BIGINT REFERENCES vehicles(id) ON DELETE SET NULL
+    vehicle_id    BIGINT REFERENCES vehicles(id) ON DELETE SET NULL,
+    -- Versão do token: trocar a senha invalida JWTs e QR codes já emitidos.
+    token_version INTEGER NOT NULL DEFAULT 1
 );
+
+-- Bancos criados antes da coluna token_version (migração idempotente).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1;
 
 -- ---------------------------------------------------------------------------
 -- Percurso estático
