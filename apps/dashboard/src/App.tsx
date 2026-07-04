@@ -575,8 +575,31 @@ function LoginGate({ onToken }: { onToken: (t: string) => void }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Um clique só ("o pessoal se perde"): tenta a senha padrão da torre.
+  // Se a organização trocar a senha na Gestão, cai no formulário completo —
+  // ou seja, dá para fechar o acesso sem mexer em código.
+  const [showForm, setShowForm] = useState(false);
 
-  async function enter() {
+  async function quickEnter() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { token } = await login('torre', 'volta2026');
+      onToken(token);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg.toLowerCase().includes('inválid')) {
+        setShowForm(true);
+        setError('A senha da torre foi alterada — informe usuário e senha.');
+      } else {
+        setError(`${msg} — o servidor pode estar acordando (~30s no plano free); tente de novo.`);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function formEnter() {
     setBusy(true);
     setError(null);
     try {
@@ -595,27 +618,44 @@ function LoginGate({ onToken }: { onToken: (t: string) => void }) {
         <img src="/logo.png" className="logo big" alt="Logo" />
         <h1>Canelas do Planalto</h1>
         <p>Torre de Comando</p>
-        <input
-          className="gate-input"
-          value={username}
-          autoCapitalize="none"
-          autoComplete="username"
-          placeholder="Usuário"
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          className="gate-input"
-          type="password"
-          value={password}
-          autoComplete="current-password"
-          placeholder="Senha"
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && username.trim() && password && enter()}
-        />
         {error && <div className="gate-error">{error}</div>}
-        <button className="enter" disabled={busy || !username.trim() || !password} onClick={enter}>
-          {busy ? 'Entrando…' : 'Entrar'}
-        </button>
+        {showForm ? (
+          <>
+            <input
+              className="gate-input"
+              value={username}
+              autoCapitalize="none"
+              autoComplete="username"
+              placeholder="Usuário"
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <input
+              className="gate-input"
+              type="password"
+              value={password}
+              autoComplete="current-password"
+              placeholder="Senha"
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && username.trim() && password && formEnter()}
+            />
+            <button
+              className="enter"
+              disabled={busy || !username.trim() || !password}
+              onClick={formEnter}
+            >
+              {busy ? 'Entrando…' : 'Entrar'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="enter" disabled={busy} onClick={quickEnter}>
+              {busy ? 'Entrando…' : 'Entrar'}
+            </button>
+            <button className="link gate-alt" onClick={() => setShowForm(true)}>
+              entrar com usuário e senha
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
