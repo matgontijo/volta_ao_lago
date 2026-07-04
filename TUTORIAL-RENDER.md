@@ -14,13 +14,14 @@ Tempo estimado: ~10 min. Pré-requisito: o código já no GitHub.
 
 1. Crie conta em **supabase.com** → **New project**. Anote a **senha** do banco.
 2. Espere o projeto criar (~2 min).
-3. Menu **SQL Editor** → **New query**. Cole e rode, **nesta ordem** (um de cada vez):
-   - todo o conteúdo de [`db/schema.sql`](db/schema.sql) → **Run**
-   - todo o conteúdo de [`db/functions.sql`](db/functions.sql) → **Run**
-   - todo o conteúdo de [`db/seed.sql`](db/seed.sql) → **Run**
-4. Menu **Project Settings → Database** → seção **Connection string** → copie a
+3. Menu **Project Settings → Database** → seção **Connection string** → copie a
    **URI** (algo como `postgresql://postgres:[SENHA]@db.xxxx.supabase.co:5432/postgres`).
    Troque `[SENHA]` pela senha do passo 1. **Guarde essa URL** — é a `DATABASE_URL`.
+
+> ✨ **Não precisa rodar SQL na mão**: no primeiro boot o backend aplica o
+> schema/functions automaticamente e, se a base estiver vazia, o seed inicial
+> (equipes, percurso e usuários). Atualizações futuras do schema também são
+> aplicadas sozinhas a cada deploy (desligue com `AUTO_MIGRATE=off`).
 
 > Alternativa ao Supabase: **Neon** (neon.tech) funciona igual.
 

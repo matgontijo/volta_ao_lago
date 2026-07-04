@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   Injectable,
   Logger,
@@ -54,6 +55,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.pool.query('SELECT 1');
       this.logger.log('Conectado ao PostgreSQL/PostGIS');
+      await this.autoMigrate();
     } catch (err) {
       this.logger.error(
         `Falha ao conectar no Postgres: ${(err as Error).message}. ` +
@@ -61,6 +63,46 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       );
     }
     this.startPositionLogRetention();
+  }
+
+  /**
+   * Migração automática no boot (idempotente): aplica db/schema.sql e
+   * db/functions.sql — ambos escritos com IF NOT EXISTS / CREATE OR REPLACE.
+   * Elimina o clássico "deployou o código novo e esqueceu a coluna no banco"
+   * (ex.: users.token_version quebrando o login em produção).
+   * Base totalmente vazia (sem usuários) recebe também o seed inicial.
+   * Desligue com AUTO_MIGRATE=off.
+   */
+  private async autoMigrate(): Promise<void> {
+    if ((process.env.AUTO_MIGRATE ?? 'on').toLowerCase() === 'off') return;
+    // dist/database → dist → backend → raiz do repo (mesma profundidade no dev via src/).
+    const dbDir = join(__dirname, '..', '..', '..', 'db');
+    if (!existsSync(join(dbDir, 'schema.sql'))) {
+      // Deploy sem a pasta db/ (ex.: imagem Docker só do backend) — sem drama,
+      // mas as migrações passam a ser responsabilidade de quem faz o deploy.
+      this.logger.warn('db/schema.sql não encontrado — migração automática pulada');
+      return;
+    }
+    try {
+      for (const file of ['schema.sql', 'functions.sql']) {
+        await this.pool.query(readFileSync(join(dbDir, file), 'utf8'));
+      }
+      this.logger.log('Migração automática aplicada (schema + functions)');
+    } catch (err) {
+      this.logger.error(`Migração automática falhou: ${(err as Error).message}`);
+      return;
+    }
+    try {
+      const users = await this.pool.query<{ n: number }>(
+        'SELECT count(*)::int AS n FROM users',
+      );
+      if (Number(users.rows[0]?.n) === 0) {
+        await this.pool.query(readFileSync(join(dbDir, 'seed.sql'), 'utf8'));
+        this.logger.log('Base vazia: seed inicial aplicado (equipes, percurso e usuários)');
+      }
+    } catch (err) {
+      this.logger.warn(`Seed automático não aplicado: ${(err as Error).message}`);
+    }
   }
 
   query<T extends QueryResultRow = QueryResultRow>(
