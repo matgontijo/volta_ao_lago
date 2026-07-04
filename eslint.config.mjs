@@ -9,6 +9,9 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/*.config.{js,cjs,mjs,ts}',
       'ecosystem.config.cjs',
+      // Scripts de workflow do Claude Code: usam globals do runtime (agent,
+      // pipeline, phase, log, args) que o ESLint não conhece.
+      '.claude/**',
     ],
   },
   js.configs.recommended,

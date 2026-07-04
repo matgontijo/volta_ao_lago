@@ -9,4 +9,6 @@ coverage/
 .vite/
 .turbo/
 pgdata/
-.claude/
+# Config local do Claude Code fica fora — mas os workflows são versionados.
+.claude/*
+!.claude/workflows/
