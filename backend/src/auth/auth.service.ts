@@ -58,12 +58,34 @@ export class AuthService {
    */
   async verify(token: string): Promise<JwtProfile> {
     const profile = this.jwt.verify<JwtProfile>(token);
+    // Espectador não existe na tabela users: vale até expirar (ou até trocar
+    // o JWT_SECRET). É somente-leitura por construção — nenhum handler de
+    // escrita aceita esse papel.
+    if (profile.role === 'spectator') return profile;
     const current = await this.currentTokenVersion(profile.sub);
     // Tokens antigos (sem `ver`) valem apenas para a versão inicial (1).
     if ((profile.ver ?? 1) !== current) {
       throw new UnauthorizedException('Acesso revogado — peça um novo QR/senha à torre');
     }
     return profile;
+  }
+
+  /** Link público somente-leitura do mapa ao vivo (espectadores/famílias). */
+  async issueSpectatorToken(
+    expiresIn = '30d',
+  ): Promise<{ token: string; expiresAt: string }> {
+    const profile: JwtProfile = {
+      sub: 0,
+      name: 'Espectador',
+      role: 'spectator',
+      teamId: null,
+      teamName: null,
+      vehicleId: null,
+      vehicleRole: null,
+    };
+    const token = await this.jwt.signAsync(profile, { expiresIn });
+    const { exp } = this.jwt.decode(token) as { exp: number };
+    return { token, expiresAt: new Date(exp * 1000).toISOString() };
   }
 
   /** Emite um token de login para um usuário (link mágico / QR). Sem senha. */

@@ -98,6 +98,10 @@ h1, .hero-athlete, .hero-timer, .brand h1, .btn { font-family: 'Sora', 'Inter', 
 .drive-strip { background: rgba(51,204,255,.1); border: 1px solid rgba(51,204,255,.3); color: #bae6fd; padding: 14px 16px; border-radius: 16px; font-weight: 600; font-size: 14px; display: flex; gap: 10px; align-items: center; }
 .drive-strip b { color: #fff; }
 
+/* Projeção da VOLTA COMPLETA (🏁) — visual distinto do ETA do próximo PC. */
+.finish-strip { background: rgba(74,222,128,.08); border: 1px solid rgba(74,222,128,.3); color: #bbf7d0; padding: 14px 16px; border-radius: 16px; font-weight: 600; font-size: 14px; display: flex; gap: 10px; align-items: center; }
+.finish-strip b { color: #fff; }
+
 .actions { display: flex; flex-direction: column; gap: 14px; margin-top: auto; padding-top: 16px; }
 .confirm { display: flex; flex-direction: column; gap: 12px; }
 

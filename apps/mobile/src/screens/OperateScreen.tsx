@@ -182,9 +182,21 @@ export function OperateScreen({ socket, profile, onLogout }: Props) {
       <section className="metrics">
         <Metric label="Próximo PC" value={state?.nextPc?.name ?? '—'} />
         <Metric label="Distância" value={distanceLabel(state?.distanceToNextPcM ?? null)} />
-        <Metric label="ETA" value={etaLabel(state?.etaSeconds ?? null)} />
+        <Metric label="ETA próx. PC" value={etaLabel(state?.etaSeconds ?? null)} />
         <Metric label="Pace médio" value={paceLabel(state?.avgPaceSecPerKm ?? null)} />
       </section>
+
+      {state?.status === 'running' && state.finishEtaAt && (
+        <div className="finish-strip">
+          <span aria-hidden>🏁</span>
+          <span>
+            Volta completa: chegada ~<b>{finishHour(state.finishEtaAt)}</b>
+            {state.remainingCourseM != null && (
+              <> · faltam <b>{(state.remainingCourseM / 1000).toFixed(1)} km</b></>
+            )}
+          </span>
+        </div>
+      )}
 
       {alerts[0] && <div className="alert">📍 {alerts[0].message}</div>}
 
@@ -251,4 +263,9 @@ function Metric({ label, value }: { label: string; value: string }) {
       <span className="metric-value">{value}</span>
     </div>
   );
+}
+
+/** ISO → "14:32" local (hora prevista de conclusão da volta). */
+function finishHour(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }

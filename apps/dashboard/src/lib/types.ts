@@ -53,6 +53,30 @@ export interface TeamState {
   avgPaceSecPerKm: number | null;
   distanceToNextPcM: number | null;
   etaSeconds: number | null;
+  /** Projeção da VOLTA COMPLETA (🏁) — separada do ETA do próximo PC. */
+  remainingCourseM: number | null;
+  finishEtaSeconds: number | null;
+  finishEtaAt: string | null;
+}
+
+/** Evento da linha do tempo da prova (feed ao vivo + auditoria). */
+export interface TimelineEvent {
+  id: number;
+  ts: number;
+  action: 'started' | 'advanced' | 'finished_race';
+  teamId: number;
+  teamName: string;
+  colorHex: string;
+  finishedLegSeq: number | null;
+  finishedAthlete: string | null;
+  finishedSeconds: number | null;
+  finishedDistanceM: number | null;
+  newLegSeq: number | null;
+  newAthlete: string | null;
+  createdByName: string | null;
+  createdByRole: 'org' | 'operator' | 'driver' | 'spectator' | null;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface LeaderboardRow {

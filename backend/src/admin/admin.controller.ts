@@ -66,6 +66,12 @@ export class AdminController {
     return { token, expiresAt };
   }
 
+  /** Link público SOMENTE-LEITURA do mapa ao vivo (espectadores/famílias). */
+  @Get('spectator-link')
+  spectatorLink() {
+    return this.auth.issueSpectatorToken();
+  }
+
   /** Editor de trajeto: move um PC (drag no mapa). */
   @Post('pc/:id/move')
   async movePc(@Param('id') id: string, @Body() body: { lat: number; lng: number }) {

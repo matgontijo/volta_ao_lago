@@ -3,6 +3,7 @@ import { AdminPanel } from './components/AdminPanel';
 import { AlertSettings, type AlertPrefs } from './components/AlertSettings';
 import { AlertsFeed } from './components/AlertsFeed';
 import { CourseImport } from './components/CourseImport';
+import { ExportModal } from './components/ExportModal';
 import { FleetPanel, type ExpectedVehicle } from './components/FleetPanel';
 import { ManagementPanel } from './components/ManagementPanel';
 import { Leaderboard } from './components/Leaderboard';
@@ -10,6 +11,7 @@ import { MapView } from './components/MapView';
 import { PointsPanel } from './components/PointsPanel';
 import { TeamFocusBar } from './components/TeamFocusBar';
 import { TelemetryPanel } from './components/TelemetryPanel';
+import { TimelinePanel } from './components/TimelinePanel';
 import { useFleetWatch } from './hooks/useFleetWatch';
 import { useIsMobile } from './hooks/useIsMobile';
 import { useRaceSocket } from './hooks/useRaceSocket';
@@ -24,23 +26,101 @@ import {
   rebuildRoute,
   reorderPcs,
   resetRace,
+  validateMagicToken,
   type DriveRoute,
 } from './lib/api';
 import type { Bootstrap } from './lib/types';
 
 const TOKEN_KEY = 'volta.dash.token';
+const SPECTATOR_KEY = 'volta.spectator.token';
 
 export function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
+  const [spectator, setSpectator] = useState<string | null>(() =>
+    localStorage.getItem(SPECTATOR_KEY),
+  );
+  // Link público ?s=TOKEN: valida no servidor antes de aceitar.
+  const [specState, setSpecState] = useState<'idle' | 'checking' | 'error'>(() =>
+    new URL(window.location.href).searchParams.get('s') ? 'checking' : 'idle',
+  );
+  const [specError, setSpecError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const s = url.searchParams.get('s');
+    if (!s) return;
+    url.searchParams.delete('s');
+    window.history.replaceState({}, '', url.pathname);
+    validateMagicToken(s)
+      .then((me) => {
+        if (me.role !== 'spectator') throw new Error('Este link não é de espectador.');
+        localStorage.setItem(SPECTATOR_KEY, s);
+        setSpectator(s);
+        setSpecState('idle');
+      })
+      .catch((e) => {
+        setSpecError((e as Error).message);
+        setSpecState('error');
+      });
+  }, []);
+
+  if (specState === 'checking') {
+    return (
+      <div className="gate">
+        <div className="gate-card">
+          <img src="/logo.png" className="logo big" alt="Logo" />
+          <h1>Canelas do Planalto</h1>
+          <p>Validando link do espectador…</p>
+        </div>
+      </div>
+    );
+  }
+  if (specState === 'error') {
+    return (
+      <div className="gate">
+        <div className="gate-card">
+          <img src="/logo.png" className="logo big" alt="Logo" />
+          <h1>Canelas do Planalto</h1>
+          <p>Link do espectador</p>
+          <div className="gate-error">⚠️ {specError} — peça um link novo à organização.</div>
+          <button className="enter" onClick={() => setSpecState('idle')}>
+            Entrar como organização
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (spectator) {
+    return (
+      <Tower
+        token={spectator}
+        readOnly
+        onLogout={() => {
+          localStorage.removeItem(SPECTATOR_KEY);
+          setSpectator(null);
+        }}
+      />
+    );
+  }
   if (!token) {
     return <LoginGate onToken={(t) => { localStorage.setItem(TOKEN_KEY, t); setToken(t); }} />;
   }
   return <Tower token={token} onLogout={() => { localStorage.removeItem(TOKEN_KEY); setToken(null); }} />;
 }
 
-function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
+function Tower({
+  token,
+  onLogout,
+  readOnly = false,
+}: {
+  token: string;
+  onLogout: () => void;
+  readOnly?: boolean;
+}) {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [showExport, setShowExport] = useState(false);
 
   // Editor de trajeto (arrastar PCs)
   const [editMode, setEditMode] = useState(false);
@@ -68,13 +148,14 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
     localStorage.setItem('volta.alertPrefs', JSON.stringify(alertPrefs));
   }, [alertPrefs]);
 
-  // WebSocket da torre (posições, estados, leaderboard, alertas)
-  const { connected, positions, states, leaderboard, alerts, pushAlert } = useRaceSocket(token, {
-    onAuthError: onLogout,
-    onRouteUpdate: (points) =>
-      setBootstrap((prev) => (prev ? { ...prev, routePath: points } : prev)),
-    prefsRef,
-  });
+  // WebSocket da torre (posições, estados, leaderboard, alertas, timeline)
+  const { connected, positions, states, leaderboard, alerts, timeline, pushAlert } =
+    useRaceSocket(token, {
+      onAuthError: onLogout,
+      onRouteUpdate: (points) =>
+        setBootstrap((prev) => (prev ? { ...prev, routePath: points } : prev)),
+      prefsRef,
+    });
 
   // Vigia da frota: sem sinal / bateria fraca
   useFleetWatch(positions, prefsRef, pushAlert);
@@ -211,7 +292,7 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
     <TelemetryPanel
       states={visibleStates}
       now={now}
-      onForceTroca={onForceTroca}
+      onForceTroca={readOnly ? undefined : onForceTroca}
       selectedTeamId={focusTeamId}
       onSelectTeam={(teamId) => {
         toggleFocus(teamId);
@@ -219,6 +300,7 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
       }}
     />
   );
+  const timelineEl = <TimelinePanel events={timeline} />;
   const fleetEl = (
     <FleetPanel
       positions={visiblePositions}
@@ -230,7 +312,12 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
   const boardEl = (
     <Leaderboard rows={leaderboard} focusTeamId={focusTeamId} onSelectTeam={toggleFocus} />
   );
-  const alertsEl = <AlertsFeed alerts={alerts} onOpenSettings={() => setShowAlertSettings(true)} />;
+  const alertsEl = (
+    <AlertsFeed
+      alerts={alerts}
+      onOpenSettings={readOnly ? undefined : () => setShowAlertSettings(true)}
+    />
+  );
   const pointsEl = bootstrap ? (
     <PointsPanel
       pcs={bootstrap.exchangePoints}
@@ -239,7 +326,22 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
     />
   ) : null;
 
-  const actionButtons = (
+  const actionButtons = readOnly ? (
+    <>
+      <button
+        className="ctrl"
+        onClick={() => {
+          (replay.replayMode ? replay.exitReplay : replay.loadReplay)();
+          setShowActions(false);
+        }}
+      >
+        {replay.replayMode ? 'Sair do replay' : 'Replay'}
+      </button>
+      <button className="link" onClick={onLogout}>
+        sair
+      </button>
+    </>
+  ) : (
     <>
       {editMode && (
         <>
@@ -272,6 +374,9 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
       <button className="ctrl" onClick={() => { setShowMgmt(true); setShowActions(false); }}>
         Gestão de equipes
       </button>
+      <button className="ctrl" onClick={() => { setShowExport(true); setShowActions(false); }}>
+        Exportar resultados
+      </button>
       <button className="ctrl" onClick={() => { setShowAlertSettings(true); setShowActions(false); }}>
         Configurar alertas
       </button>
@@ -296,6 +401,7 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
   const tabs: [MobileTab, string, string][] = [
     ['map', '🗺️', 'Mapa'],
     ['teams', '🏃', 'Equipes'],
+    ['timeline', '📜', 'Prova'],
     ['fleet', '🚐', 'Frota'],
     ['points', '📍', 'Pontos'],
     ['alerts', '🔔', 'Alertas'],
@@ -308,10 +414,11 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
           <img src="/logo.png" className="logo" alt="Logo" />
           <div>
             <div className="brand-name">Canelas do Planalto</div>
-            <div className="brand-sub">Torre de Comando</div>
+            <div className="brand-sub">{readOnly ? 'Acompanhamento ao vivo' : 'Torre de Comando'}</div>
           </div>
         </div>
         <div className="appbar-meta">
+          {readOnly && <span className="pill spec">👀 Espectador</span>}
           <span className={`pill ${connected ? 'ok' : 'bad'}`}>
             <span className="live-dot" />
             {connected ? 'Ao vivo' : 'Reconectando…'}
@@ -384,6 +491,7 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
             {telemetryEl}
             {fleetEl}
             {boardEl}
+            {timelineEl}
             {alertsEl}
             {pointsEl}
           </aside>
@@ -398,6 +506,7 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
               {boardEl}
             </>
           )}
+          {mobileTab === 'timeline' && timelineEl}
           {mobileTab === 'fleet' && fleetEl}
           {mobileTab === 'points' && pointsEl}
           {mobileTab === 'alerts' && alertsEl}
@@ -433,7 +542,8 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
         </div>
       )}
 
-      {showAdmin && <AdminPanel token={token} onClose={() => setShowAdmin(false)} />}
+      {showAdmin && !readOnly && <AdminPanel token={token} onClose={() => setShowAdmin(false)} />}
+      {showExport && !readOnly && <ExportModal token={token} onClose={() => setShowExport(false)} />}
       {showMgmt && (
         <ManagementPanel
           token={token}
@@ -448,7 +558,7 @@ function Tower({ token, onLogout }: { token: string; onLogout: () => void }) {
           onDone={async () => setBootstrap(await fetchBootstrap())}
         />
       )}
-      {showAlertSettings && (
+      {showAlertSettings && !readOnly && (
         <AlertSettings
           token={token}
           prefs={alertPrefs}
@@ -511,4 +621,4 @@ function LoginGate({ onToken }: { onToken: (t: string) => void }) {
   );
 }
 
-type MobileTab = 'map' | 'teams' | 'fleet' | 'points' | 'alerts';
+type MobileTab = 'map' | 'teams' | 'timeline' | 'fleet' | 'points' | 'alerts';

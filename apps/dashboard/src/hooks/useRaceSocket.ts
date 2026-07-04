@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
 import type { AlertPrefs } from '../components/AlertSettings';
+import { fetchTimeline } from '../lib/api';
 import { connectSocket } from '../lib/socket';
 import { beep } from '../lib/sound';
 import type {
@@ -8,6 +9,7 @@ import type {
   LeaderboardRow,
   Snapshot,
   TeamState,
+  TimelineEvent,
   VehiclePosition,
 } from '../lib/types';
 
@@ -27,6 +29,7 @@ export function useRaceSocket(token: string, { onAuthError, onRouteUpdate, prefs
   const [states, setStates] = useState<Record<number, TeamState>>({});
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [alerts, setAlerts] = useState<GeofenceAlert[]>([]);
+  const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
 
   // Callbacks em refs: reconectar o socket a cada render seria um desastre.
   const authErrorRef = useRef(onAuthError);
@@ -49,7 +52,14 @@ export function useRaceSocket(token: string, { onAuthError, onRouteUpdate, prefs
       setStates(indexBy(snap.states, 'teamId'));
       setLeaderboard(snap.leaderboard);
       setPositions(indexBy(snap.positions, 'vehicleId'));
+      // Snapshot chega na conexão E após reset de prova — recarrega o feed.
+      fetchTimeline().then(setTimeline).catch(() => {});
     });
+    s.on('timeline:event', (ev: TimelineEvent) =>
+      setTimeline((prev) =>
+        prev.some((e) => e.id === ev.id) ? prev : [ev, ...prev].slice(0, 200),
+      ),
+    );
     s.on('vehicle:position', (p: VehiclePosition) =>
       setPositions((prev) => ({ ...prev, [p.vehicleId]: p })),
     );
@@ -69,7 +79,7 @@ export function useRaceSocket(token: string, { onAuthError, onRouteUpdate, prefs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  return { connected, positions, states, leaderboard, alerts, pushAlert };
+  return { connected, positions, states, leaderboard, alerts, timeline, pushAlert };
 }
 
 function indexBy<T, K extends keyof T>(arr: T[], key: K): Record<string, T> {

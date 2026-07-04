@@ -2,12 +2,17 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { RedisService } from '../redis/redis.service';
 import { haversineMeters } from '../common/geo';
-import { computeAvgPaceSecPerKm, computeEtaSeconds } from '../common/pace';
+import {
+  computeAvgPaceSecPerKm,
+  computeEtaSeconds,
+  computeRemainingCourseM,
+} from '../common/pace';
 import {
   DriveRoute,
   LeaderboardRow,
   NextPc,
   TeamState,
+  TimelineEvent,
   VehiclePosition,
   VehicleRole,
 } from '../common/types';
@@ -25,6 +30,7 @@ interface StateRow {
   exec_id: number | null;
   started_at: string | null;
   leg_seq: number | null;
+  leg_distance_m: number | null;
   athlete_id: number | null;
   athlete_name: string | null;
   from_pc_name: string | null;
@@ -62,6 +68,7 @@ export class RaceService implements OnModuleInit {
   private vehicleMeta = new Map<number, VehicleMeta>();    // vehicleId -> meta
   private allVehicleIds: number[] = [];
   private nextPcByTeam = new Map<number, NextPc | null>(); // cache p/ geofence
+  private legDistanceBySeq = new Map<number, number>();    // seq -> distância oficial (m)
 
   constructor(
     private readonly db: DatabaseService,
@@ -102,8 +109,12 @@ export class RaceService implements OnModuleInit {
   }
 
   private async loadStaticMaps(): Promise<void> {
-    const legs = await this.db.query<{ n: number }>('SELECT count(*)::int AS n FROM legs');
-    this.maxLegs = legs.rows[0]?.n ?? 0;
+    const legs = await this.db.query<{ sequence: number; distance_m: number }>(
+      'SELECT sequence, distance_m FROM legs ORDER BY sequence',
+    );
+    this.maxLegs = legs.rows.length;
+    this.legDistanceBySeq.clear();
+    for (const l of legs.rows) this.legDistanceBySeq.set(Number(l.sequence), Number(l.distance_m));
 
     const vehicles = await this.db.query<{
       id: number;
@@ -261,6 +272,77 @@ export class RaceService implements OnModuleInit {
     }));
   }
 
+  // -------------------------------------------------------------------------
+  // Linha do tempo da prova (feed ao vivo + auditoria de trocas).
+  // -------------------------------------------------------------------------
+  async getTimeline(limit = 100, teamId?: number): Promise<TimelineEvent[]> {
+    const params: unknown[] = [Math.min(Math.max(limit, 1), 500)];
+    if (teamId != null) params.push(teamId);
+    const res = await this.db.query<{
+      id: number;
+      ts: string;
+      action: TimelineEvent['action'];
+      team_id: number;
+      team_name: string;
+      color_hex: string;
+      finished_leg_seq: number | null;
+      finished_athlete: string | null;
+      finished_seconds: number | null;
+      finished_distance_m: number | null;
+      new_leg_seq: number | null;
+      new_athlete: string | null;
+      created_by_name: string | null;
+      created_by_role: TimelineEvent['createdByRole'];
+      lat: number | null;
+      lng: number | null;
+    }>(
+      `SELECT te.id,
+              EXTRACT(EPOCH FROM te.created_at) * 1000 AS ts,
+              te.action, te.team_id, t.name AS team_name, t.color_hex,
+              fl.sequence          AS finished_leg_seq,
+              fa.name              AS finished_athlete,
+              fe.elapsed_seconds   AS finished_seconds,
+              fl.distance_m        AS finished_distance_m,
+              nl.sequence          AS new_leg_seq,
+              na.name              AS new_athlete,
+              u.display_name       AS created_by_name,
+              u.role               AS created_by_role,
+              ST_Y(te.location::geometry) AS lat,
+              ST_X(te.location::geometry) AS lng
+         FROM troca_events te
+         JOIN teams t              ON t.id  = te.team_id
+         LEFT JOIN leg_executions fe ON fe.id = te.finished_exec
+         LEFT JOIN legs fl           ON fl.id = fe.leg_id
+         LEFT JOIN athletes fa       ON fa.id = fe.athlete_id
+         LEFT JOIN leg_executions ne ON ne.id = te.new_exec
+         LEFT JOIN legs nl           ON nl.id = ne.leg_id
+         LEFT JOIN athletes na       ON na.id = ne.athlete_id
+         LEFT JOIN users u           ON u.id  = te.created_by
+        ${teamId != null ? 'WHERE te.team_id = $2' : ''}
+        ORDER BY te.id DESC
+        LIMIT $1`,
+      params,
+    );
+    return res.rows.map((r) => ({
+      id: Number(r.id),
+      ts: Number(r.ts),
+      action: r.action,
+      teamId: Number(r.team_id),
+      teamName: r.team_name,
+      colorHex: r.color_hex,
+      finishedLegSeq: r.finished_leg_seq,
+      finishedAthlete: r.finished_athlete,
+      finishedSeconds: r.finished_seconds,
+      finishedDistanceM: r.finished_distance_m,
+      newLegSeq: r.new_leg_seq,
+      newAthlete: r.new_athlete,
+      createdByName: r.created_by_name,
+      createdByRole: r.created_by_role,
+      lat: r.lat,
+      lng: r.lng,
+    }));
+  }
+
   /** Recarrega o próximo PC da equipe (chamado após cada troca). */
   async refreshNextPc(teamId: number): Promise<void> {
     const res = await this.db.query<{
@@ -335,6 +417,32 @@ export class RaceService implements OnModuleInit {
       speedMps: pos?.speedMps ?? null,
     });
 
+    // Projeção da VOLTA COMPLETA (🏁) — separada do ETA do próximo PC.
+    let remainingAfterCurrentM = 0;
+    if (r.leg_seq != null) {
+      for (const [seq, dist] of this.legDistanceBySeq) {
+        if (seq > r.leg_seq) remainingAfterCurrentM += dist;
+      }
+    }
+    const remainingCourseM =
+      status === 'running'
+        ? computeRemainingCourseM({
+            legSeq: r.leg_seq,
+            legDistanceM: r.leg_distance_m != null ? Number(r.leg_distance_m) : null,
+            distanceToNextPcM,
+            remainingAfterCurrentM,
+          })
+        : null;
+    const finishEtaSeconds =
+      remainingCourseM != null
+        ? computeEtaSeconds({
+            distanceToNextPcM: remainingCourseM,
+            doneDistanceM: r.done_distance_m,
+            doneSeconds: r.done_seconds,
+            speedMps: pos?.speedMps ?? null,
+          })
+        : null;
+
     return {
       teamId: r.team_id,
       teamName: r.team_name,
@@ -353,6 +461,12 @@ export class RaceService implements OnModuleInit {
       distanceToNextPcM,
       etaSeconds,
       etaAt: etaSeconds != null ? new Date(Date.now() + etaSeconds * 1000).toISOString() : null,
+      remainingCourseM,
+      finishEtaSeconds,
+      finishEtaAt:
+        finishEtaSeconds != null
+          ? new Date(Date.now() + finishEtaSeconds * 1000).toISOString()
+          : null,
     };
   }
 

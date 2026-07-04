@@ -1,6 +1,8 @@
 // Contrato de dados compartilhado entre gateway, serviços e (espelhado) frontends.
 
-export type UserRole = 'org' | 'operator' | 'driver';
+// 'spectator' não existe na tabela users: é um token assinado emitido pela
+// organização para o link público somente-leitura do mapa ao vivo.
+export type UserRole = 'org' | 'operator' | 'driver' | 'spectator';
 export type VehicleRole = 'carro_dropoff' | 'van_pickup' | null;
 
 export interface JwtProfile {
@@ -64,6 +66,30 @@ export interface TeamState {
   distanceToNextPcM: number | null;
   etaSeconds: number | null;
   etaAt: string | null;         // ISO
+  /** Projeção da VOLTA COMPLETA (não confundir com o ETA do próximo PC). */
+  remainingCourseM: number | null;
+  finishEtaSeconds: number | null;
+  finishEtaAt: string | null;   // ISO
+}
+
+/** Evento da linha do tempo da prova (feed ao vivo + auditoria). */
+export interface TimelineEvent {
+  id: number;
+  ts: number;                       // epoch ms
+  action: 'started' | 'advanced' | 'finished_race';
+  teamId: number;
+  teamName: string;
+  colorHex: string;
+  finishedLegSeq: number | null;    // trecho fechado neste clique
+  finishedAthlete: string | null;
+  finishedSeconds: number | null;   // duração do trecho fechado
+  finishedDistanceM: number | null;
+  newLegSeq: number | null;         // trecho aberto neste clique
+  newAthlete: string | null;
+  createdByName: string | null;     // quem clicou (auditoria)
+  createdByRole: UserRole | null;   // 'org' = troca forçada pela torre
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface LeaderboardRow {

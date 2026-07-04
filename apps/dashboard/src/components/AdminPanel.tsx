@@ -1,6 +1,12 @@
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
-import { fetchUsers, getMagicLink, validateMagicToken, type RosterUser } from '../lib/api';
+import {
+  fetchUsers,
+  getMagicLink,
+  getSpectatorLink,
+  validateMagicToken,
+  type RosterUser,
+} from '../lib/api';
 
 const MOBILE_URL = import.meta.env.VITE_MOBILE_URL ?? `${window.location.origin}/mobile`;
 
@@ -70,6 +76,28 @@ export function AdminPanel({ token, onClose }: { token: string; onClose: () => v
     setTimeout(() => setCopied((c) => (c === userId ? null : c)), 1600);
   }
 
+  // ---- Link público do espectador (mapa ao vivo somente-leitura) ----
+  const [spec, setSpec] = useState<QrInfo | null>(null);
+  const [specCopied, setSpecCopied] = useState(false);
+
+  async function genSpectator() {
+    try {
+      const { token: st, expiresAt } = await getSpectatorLink(token);
+      const url = `${window.location.origin}/?s=${st}`;
+      const dataUrl = await QRCode.toDataURL(url, { width: 220, margin: 1 });
+      setSpec({ dataUrl, link: url, token: st, expiresAt, check: 'idle' });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  function copySpectator() {
+    if (!spec) return;
+    navigator.clipboard?.writeText(spec.link);
+    setSpecCopied(true);
+    setTimeout(() => setSpecCopied(false), 1600);
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -85,6 +113,42 @@ export function AdminPanel({ token, onClose }: { token: string; onClose: () => v
           antigos). Aponte cada celular para o seu veículo.
         </p>
         {error && <div className="gate-error">{error}</div>}
+
+        <div className="spec-card">
+          <div className="acc-info">
+            <span className="export-ico" aria-hidden>🌍</span>
+            <div>
+              <strong>Link público do espectador</strong>
+              <small>
+                Mapa ao vivo somente-leitura — compartilhe com famílias e atletas.
+                Sem botões de troca, sem acesso à gestão.
+              </small>
+            </div>
+          </div>
+          {spec ? (
+            <div className="acc-qr">
+              <img className="qr" src={spec.dataUrl} alt="QR do espectador" />
+              <small className="muted">
+                válido até{' '}
+                {new Date(spec.expiresAt).toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </small>
+              <div className="acc-qr-actions">
+                <button className="ctrl" onClick={copySpectator}>
+                  {specCopied ? 'Copiado ✓' : 'Copiar link'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button className="ctrl primary" onClick={genSpectator}>
+              Gerar link
+            </button>
+          )}
+        </div>
         <div className="acc-grid">
           {users.map((u) => {
             const info = qr[u.id];

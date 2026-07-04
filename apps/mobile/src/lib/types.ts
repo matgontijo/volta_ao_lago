@@ -43,6 +43,10 @@ export interface TeamState {
   distanceToNextPcM: number | null;
   etaSeconds: number | null;
   etaAt: string | null;
+  /** Projeção da VOLTA COMPLETA (🏁) — separada do ETA do próximo PC. */
+  remainingCourseM: number | null;
+  finishEtaSeconds: number | null;
+  finishEtaAt: string | null;
 }
 
 export interface GeofenceAlert {

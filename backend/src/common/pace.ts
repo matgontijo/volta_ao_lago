@@ -28,3 +28,23 @@ export function computeEtaSeconds(args: {
 export function computeAvgPaceSecPerKm(doneDistanceM: number, doneSeconds: number): number | null {
   return doneDistanceM > 0 ? doneSeconds / (doneDistanceM / 1000) : null;
 }
+
+/**
+ * Distância que ainda falta para concluir a VOLTA COMPLETA (aproximação):
+ * trechos oficiais ainda não corridos + o que falta do trecho atual (linha
+ * reta da van ao próximo PC, limitada à distância oficial do trecho).
+ */
+export function computeRemainingCourseM(args: {
+  legSeq: number | null;            // trecho atual em prova (null = não largou)
+  legDistanceM: number | null;      // distância oficial do trecho atual
+  distanceToNextPcM: number | null; // haversine van→próximo PC (pode ser null sem GPS)
+  remainingAfterCurrentM: number;   // soma oficial dos trechos DEPOIS do atual
+}): number | null {
+  const { legSeq, legDistanceM, distanceToNextPcM, remainingAfterCurrentM } = args;
+  if (legSeq == null) return null;
+  const currentRemaining =
+    distanceToNextPcM != null
+      ? Math.min(distanceToNextPcM, legDistanceM ?? distanceToNextPcM)
+      : (legDistanceM ?? 0);
+  return Math.max(0, Math.round(remainingAfterCurrentM + currentRemaining));
+}

@@ -84,7 +84,7 @@ export async function getMagicLink(
 }
 
 /** Confere no servidor se um token de QR/link mágico está válido (não vencido/revogado). */
-export async function validateMagicToken(magicToken: string): Promise<{ name: string }> {
+export async function validateMagicToken(magicToken: string): Promise<{ name: string; role: string }> {
   const res = await fetch(`${API_URL}/auth/me`, {
     headers: { Authorization: `Bearer ${magicToken}` },
   });
@@ -93,6 +93,46 @@ export async function validateMagicToken(magicToken: string): Promise<{ name: st
     throw new Error(body?.message ?? 'Link inválido ou vencido');
   }
   return res.json();
+}
+
+/** Link público somente-leitura do mapa ao vivo (espectadores). */
+export async function getSpectatorLink(
+  token: string,
+): Promise<{ token: string; expiresAt: string }> {
+  const res = await fetch(`${API_URL}/admin/spectator-link`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Falha ao gerar link do espectador');
+  return res.json();
+}
+
+/** Linha do tempo da prova (feed de trocas para o painel e auditoria). */
+export async function fetchTimeline(limit = 100): Promise<import('./types').TimelineEvent[]> {
+  const res = await fetch(`${API_URL}/race/timeline?limit=${limit}`);
+  if (!res.ok) throw new Error('Falha ao carregar a linha do tempo');
+  return res.json();
+}
+
+/** Baixa um CSV autenticado (Authorization não funciona em <a href>). */
+export async function downloadExport(
+  token: string,
+  tipo: 'trechos' | 'classificacao' | 'auditoria',
+): Promise<void> {
+  const res = await fetch(`${API_URL}/admin/export/${tipo}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Falha ao exportar');
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const match = /filename="([^"]+)"/.exec(disposition);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = match?.[1] ?? `${tipo}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 export async function rebuildRoute(token: string): Promise<{ totalKm: number }> {

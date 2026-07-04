@@ -57,7 +57,10 @@ export class RealtimeGateway
       const driverName = sanitizeDriverName(client.handshake.query?.driverName);
       if (driverName) client.data.driverName = driverName;
 
-      if (profile.role === 'org') {
+      if (profile.role === 'org' || profile.role === 'spectator') {
+        // Espectador entra na MESMA room de leitura da torre: recebe posições,
+        // estados e timeline ao vivo. Escrita continua barrada por papel nos
+        // handlers (position/troca) e por @Roles('org') nos endpoints admin.
         client.join('dashboard');
         const states = await this.race.getTeamStates();
         client.emit('state:snapshot', {
@@ -188,6 +191,17 @@ export class RealtimeGateway
     this.server.to('dashboard').emit('team:update', state);
     this.server.to(`team:${teamId}`).emit('team:update', state);
     this.server.to('dashboard').emit('leaderboard:update', await this.race.getLeaderboard());
+
+    // Linha do tempo ao vivo: o evento recém-gravado pela troca desta equipe.
+    try {
+      const [event] = await this.race.getTimeline(1, teamId);
+      if (event) {
+        this.server.to('dashboard').emit('timeline:event', event);
+        this.server.to(`team:${teamId}`).emit('timeline:event', event);
+      }
+    } catch {
+      /* timeline é acessório do broadcast — não pode derrubar a troca */
+    }
     return state;
   }
 

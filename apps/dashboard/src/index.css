@@ -206,6 +206,39 @@ h1, h2, h3, strong, .brand-name { font-family: 'Sora', 'Inter', sans-serif; }
 .qr-ok { color: #4ade80; font-size: 12px; }
 .qr-fail { color: var(--bad, #fb7185); font-size: 12px; }
 
+/* ---------- Espectador ---------- */
+.pill.spec { border-color: var(--gold); color: var(--gold); }
+.spec-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  background: rgba(247,201,72,.06); border: 1px solid var(--gold);
+  border-radius: 14px; padding: 14px; margin-bottom: 16px;
+}
+.spec-card .acc-info small { max-width: 340px; }
+
+/* ---------- Linha do tempo ---------- */
+.timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+.timeline li { display: flex; align-items: flex-start; gap: 8px; }
+.tl-time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; padding-top: 2px; min-width: 54px; }
+.timeline .swatch { margin-top: 4px; flex-shrink: 0; }
+.tl-body { min-width: 0; }
+.tl-main { font-size: 13px; }
+.tl-meta { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; }
+.tl-meta b { color: var(--gold); }
+.tl-forced { color: #fbbf24; font-weight: 700; }
+.finish-eta { color: var(--gold); }
+
+/* ---------- Exportação ---------- */
+.export-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.export-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px;
+}
+.export-ico { font-size: 22px; }
+.export-info { flex: 1; min-width: 0; }
+.export-info strong { display: block; font-size: 14px; }
+.export-info small { color: var(--muted); font-size: 12px; }
+
 /* ---------- Login gate: inputs ---------- */
 .gate-input {
   display: block; width: 100%; box-sizing: border-box; margin-bottom: 10px;

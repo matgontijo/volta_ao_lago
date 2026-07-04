@@ -30,7 +30,7 @@ export function TelemetryPanel({ states, now, onForceTroca, onSelectTeam, select
           <span>Tempo</span>
           <span>Pace</span>
           <span>Próx. PC</span>
-          <span>{onForceTroca ? 'Ação' : 'ETA'}</span>
+          <span>{onForceTroca ? 'Ação' : 'ETA PC'}</span>
         </div>
         {ordered.map((s) => {
           const elapsed =
@@ -59,6 +59,9 @@ export function TelemetryPanel({ states, now, onForceTroca, onSelectTeam, select
                     : s.legSeq
                       ? `Trecho ${s.legSeq} → ${s.nextPc?.name ?? ''}`
                       : 'aguardando'}
+                  {s.status === 'running' && s.finishEtaAt && (
+                    <span className="finish-eta"> · 🏁 volta ~{hourLabel(s.finishEtaAt)}</span>
+                  )}
                 </small>
               </span>
               <span className="num">{secondsToClock(elapsed)}</span>
@@ -86,4 +89,9 @@ export function TelemetryPanel({ states, now, onForceTroca, onSelectTeam, select
       </div>
     </div>
   );
+}
+
+/** "2026-07-04T14:32:00Z" → "14:32" no fuso local (chegada prevista 🏁). */
+function hourLabel(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { RaceService } from './race.service';
 
 @Controller('race')
@@ -22,6 +22,12 @@ export class RaceController {
   @Get('replay')
   replay() {
     return this.race.getReplay();
+  }
+
+  /** Linha do tempo da prova (trocas com atleta que entrou/saiu e tempos). */
+  @Get('timeline')
+  timeline(@Query('limit') limit?: string) {
+    return this.race.getTimeline(Number(limit) || 100);
   }
 
   /** Roteirização: melhor caminho de carro da van até o próximo PC da equipe. */
