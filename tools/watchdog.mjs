@@ -28,7 +28,9 @@ async function alert(text) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ text, content: text }),
       });
-  } catch {}
+  } catch {
+    /* canal de alerta fora do ar — nada a fazer */
+  }
   try {
     if (TG_TOKEN && TG_CHAT)
       await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
@@ -36,7 +38,9 @@ async function alert(text) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ chat_id: TG_CHAT, text }),
       });
-  } catch {}
+  } catch {
+    /* canal de alerta fora do ar — nada a fazer */
+  }
 }
 
 async function tick() {

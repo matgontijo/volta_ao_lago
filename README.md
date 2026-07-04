@@ -125,7 +125,11 @@ Núcleo (do escopo):
 - ✅ Mapa ao vivo + painel de telemetria (pace e ETA dinâmicos)
 
 Além do escopo:
+- ✅ **Foco por equipe** no dashboard (chips no mapa: vê só uma equipe + seguir a van)
 - ✅ **Auth JWT** por equipe e papel (operador / motorista / organização)
+- ✅ **Revogação de acesso**: nova senha invalida QRs/tokens antigos (celular perdido)
+- ✅ **Rate limit no login** + QR validado no servidor com validade explícita
+- ✅ **Testes** (unitários + integração da troca atômica) e **CI** no GitHub Actions
 - ✅ **Buffer offline + auto-reconnect** (van em zona morta da estrada)
 - ✅ **Wake Lock** (tela não apaga com o celular fixado na van)
 - ✅ **Geofencing**: alerta de aproximação do próximo PC (Redis + debounce)
@@ -139,6 +143,21 @@ Além do escopo:
 - ✅ **Telemetria de bateria/sinal** e **degradação graciosa** sem Redis
 - ✅ **PWA instalável** (manifest + service worker)
 - ✅ **Simulador** de prova completo
+
+## Testes
+
+```bash
+npm --workspace backend run test   # unitários sempre; integração roda se o Postgres (infra:up) estiver de pé
+npm run lint                       # ESLint no repo inteiro
+```
+
+Os testes de integração cobrem a `executar_troca()`: largada concorrente
+(duplo-clique simultâneo → um `started`, outro `noop`), troca duplicada no meio
+da prova, volta completa até `finished_race` e equipe sem atleta escalado. No
+CI (GitHub Actions) eles rodam contra um PostGIS de serviço.
+
+⚠️ **Produção**: `JWT_SECRET` é obrigatório (`NODE_ENV=production` recusa subir
+sem). Se algum recurso do mapa quebrar com a CSP nova, use `HELMET_CSP=off`.
 
 ## Deploy gratuito
 

@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: volta
+          POSTGRES_PASSWORD: volta
+          POSTGRES_DB: volta_ao_lago
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U volta"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: postgres://volta:volta@localhost:5432/volta_ao_lago
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instala dependências
+        run: npm ci
+
+      - name: Build (backend + mobile + dashboard)
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Aplica schema + functions + seed
+        run: npm --workspace backend run db:migrate
+
+      - name: Testes (unitários + integração da executar_troca)
+        run: npm --workspace backend run test
