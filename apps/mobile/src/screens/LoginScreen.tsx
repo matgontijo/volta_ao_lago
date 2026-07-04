@@ -13,16 +13,16 @@ const QUICK = [
 ];
 
 export function LoginScreen({ onLogin }: Props) {
-  const [username, setUsername] = useState('op-falcoes');
-  const [password, setPassword] = useState('volta2026');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(user = username) {
+  async function submit() {
     setBusy(true);
     setError(null);
     try {
-      const { token, profile } = await login(user, password);
+      const { token, profile } = await login(username.trim(), password);
       onLogin(token, profile);
     } catch (e) {
       setError((e as Error).message);
@@ -41,23 +41,43 @@ export function LoginScreen({ onLogin }: Props) {
 
       <div className="card">
         <label>Usuário</label>
-        <input value={username} onChange={(e) => setUsername(e.target.value)} autoCapitalize="none" />
+        <input
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          autoCapitalize="none"
+          autoComplete="username"
+        />
         <label>Senha</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input
+          type="password"
+          value={password}
+          autoComplete="current-password"
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && username.trim() && submit()}
+        />
         {error && <div className="error">{error}</div>}
-        <button className="btn btn-primary big" disabled={busy} onClick={() => submit()}>
+        <button
+          className="btn btn-primary big"
+          disabled={busy || !username.trim() || !password}
+          onClick={submit}
+        >
           {busy ? 'Entrando…' : 'Entrar'}
         </button>
       </div>
 
       <div className="quick">
-        <span>Acesso rápido (demo)</span>
+        <span>Preencher usuário</span>
         {QUICK.map((q) => (
-          <button key={q.user} className="btn btn-ghost" disabled={busy} onClick={() => submit(q.user)}>
+          <button
+            key={q.user}
+            className="btn btn-ghost"
+            disabled={busy}
+            onClick={() => setUsername(q.user)}
+          >
             {q.label}
           </button>
         ))}
-        <small>Senha padrão: volta2026</small>
+        <small>Prefira o QR code gerado pela torre — entra sem digitar.</small>
       </div>
     </div>
   );

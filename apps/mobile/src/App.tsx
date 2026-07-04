@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Socket } from 'socket.io-client';
+import { validateToken } from './lib/api';
 import { connectSocket } from './lib/socket';
 import type { JwtProfile } from './lib/types';
 import { LoginScreen } from './screens/LoginScreen';
@@ -16,7 +17,7 @@ export function App() {
     const raw = localStorage.getItem(PROFILE_KEY);
     return raw ? (JSON.parse(raw) as JwtProfile) : null;
   });
-  
+
   const [driverName, setDriverName] = useState<string | null>(() => localStorage.getItem(DRIVER_KEY));
   const [deviceId] = useState<string>(() => {
     let id = localStorage.getItem(DEVICE_KEY);
@@ -29,26 +30,30 @@ export function App() {
 
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  // Link mágico / QR: ?token=... loga automaticamente e limpa a URL.
+  // Link mágico / QR: valida o token NO SERVIDOR antes de aceitar.
+  // 'checking' bloqueia a tela até a resposta; erro mostra tela dedicada.
+  const [magicState, setMagicState] = useState<'idle' | 'checking' | 'error'>(() =>
+    new URL(window.location.href).searchParams.get('token') ? 'checking' : 'idle',
+  );
+  const [magicError, setMagicError] = useState<string | null>(null);
+
   useEffect(() => {
     const url = new URL(window.location.href);
     const t = url.searchParams.get('token');
     if (!t) return;
-    const p = decodeJwt(t);
-    if (p && p.role) {
-      onLogin(t, {
-        sub: p.sub,
-        name: p.name,
-        role: p.role,
-        teamId: p.teamId ?? null,
-        teamName: p.teamName ?? null,
-        vehicleId: p.vehicleId ?? null,
-        vehicleRole: p.vehicleRole ?? null,
-      });
-    }
+    // Limpa a URL imediatamente (o token não deve ficar no histórico).
     url.searchParams.delete('token');
     window.history.replaceState({}, '', url.pathname);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    validateToken(t)
+      .then((p) => {
+        onLogin(t, p);
+        setMagicState('idle');
+      })
+      .catch((e) => {
+        setMagicError((e as Error).message);
+        setMagicState('error');
+      });
   }, []);
 
   useEffect(() => {
@@ -84,6 +89,33 @@ export function App() {
     setDriverName(null);
   }
 
+  if (magicState === 'checking') {
+    return (
+      <div className="screen login">
+        <div className="card identity-card">
+          <img src="/logo.png" width={100} alt="Logo" style={{ margin: '0 auto 10px', display: 'block' }} />
+          <h2>Validando acesso…</h2>
+          <p>Conferindo seu QR code com a torre.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (magicState === 'error') {
+    return (
+      <div className="screen login">
+        <div className="card identity-card">
+          <img src="/logo.png" width={100} alt="Logo" style={{ margin: '0 auto 10px', display: 'block' }} />
+          <h2>⚠️ QR code não aceito</h2>
+          <p>{magicError}</p>
+          <button className="btn btn-primary big" onClick={() => setMagicState('idle')}>
+            Entrar com usuário e senha
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!token || !profile) return <LoginScreen onLogin={onLogin} />;
   if (!driverName) return <IdentityScreen onSave={(name) => { localStorage.setItem(DRIVER_KEY, name); setDriverName(name); }} />;
   return <OperateScreen socket={socket} profile={profile} onLogout={logout} />;
@@ -97,16 +129,17 @@ function IdentityScreen({ onSave }: { onSave: (name: string) => void }) {
         <img src="/logo.png" width={100} alt="Logo" style={{ margin: '0 auto 10px', display: 'block' }} />
         <h2>Quem está operando?</h2>
         <p>Informe seu nome para iniciar o rastreio.</p>
-        <input 
+        <input
           autoFocus
-          placeholder="Seu nome (ex: João)" 
-          value={name} 
-          onChange={e => setName(e.target.value)} 
+          placeholder="Seu nome (ex: João)"
+          value={name}
+          maxLength={40}
+          onChange={e => setName(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && name.trim() && onSave(name.trim())}
         />
-        <button 
-          className="btn btn-primary big" 
-          disabled={!name.trim()} 
+        <button
+          className="btn btn-primary big"
+          disabled={!name.trim()}
           onClick={() => onSave(name.trim())}
         >
           Iniciar Rastreio
@@ -114,14 +147,4 @@ function IdentityScreen({ onSave }: { onSave: (name: string) => void }) {
       </div>
     </div>
   );
-}
-
-function decodeJwt(token: string): (JwtProfile & { exp?: number }) | null {
-  try {
-    const payload = token.split('.')[1];
-    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-    return JSON.parse(decodeURIComponent(escape(json)));
-  } catch {
-    return null;
-  }
 }

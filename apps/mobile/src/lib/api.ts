@@ -28,7 +28,28 @@ export async function login(username: string, password: string): Promise<LoginRe
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) {
-    throw new Error(res.status === 401 ? 'Usuário ou senha inválidos' : 'Falha no login');
+    const body = await res.json().catch(() => null);
+    throw new Error(
+      body?.message ??
+        (res.status === 401 ? 'Usuário ou senha inválidos' : 'Falha no login'),
+    );
   }
+  return res.json();
+}
+
+/**
+ * Valida um token no SERVIDOR (assinatura + expiração + revogação) e devolve
+ * o perfil autoritativo. Usado no login por QR/link mágico — decodificar o
+ * JWT localmente aceitaria QR vencido/revogado e falharia depois, sem explicação.
+ */
+export async function validateToken(token: string): Promise<JwtProfile> {
+  const res = await fetch(`${API_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message ?? 'QR code vencido ou revogado — peça um novo à torre.');
+  }
+  if (!res.ok) throw new Error('Não foi possível validar o acesso. Verifique a internet.');
   return res.json();
 }
