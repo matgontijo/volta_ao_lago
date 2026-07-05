@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Volta do Lago — Pontos de Troca</title>
+<meta name="description" content="Pontos de troca da Volta do Lago Paranoá com navegação direta pelo Waze.">
+<style>
+  :root {
+    --bg: #06101c; --card: #0c1626; --line: #1c2a3f; --text: #e8eef7;
+    --muted: #8aa0b8; --gold: #f7c948; --waze: #33ccff; --maps: #4ade80;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    padding: 20px 14px 40px; max-width: 560px; margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 18px; }
+  header h1 { font-size: 24px; letter-spacing: -0.5px; }
+  header .sub { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px; }
+  header .total { display: inline-block; margin-top: 10px; border: 1px solid var(--gold); color: var(--gold); border-radius: 999px; padding: 5px 14px; font-size: 13px; font-weight: 700; }
+  .ponto {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  .ponto.largada { border-color: var(--gold); }
+  .top { display: flex; align-items: center; gap: 12px; }
+  .badge {
+    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+    display: grid; place-items: center; font-weight: 800; font-size: 16px;
+    background: #13233a; border: 2px solid var(--waze); color: var(--text);
+  }
+  .largada .badge { background: #16a34a; border-color: var(--gold); }
+  .info { min-width: 0; }
+  .info strong { display: block; font-size: 15px; line-height: 1.25; }
+  .info small { color: var(--muted); font-size: 12px; }
+  .info small b { color: var(--gold); font-weight: 700; }
+  .coords { color: var(--muted); font-size: 11px; font-family: ui-monospace, Consolas, monospace; margin-top: 2px; display: block; }
+  .botoes { display: flex; gap: 8px; margin-top: 12px; }
+  .botoes a {
+    flex: 1; text-align: center; text-decoration: none; font-weight: 800;
+    font-size: 14px; padding: 12px 8px; border-radius: 12px; color: #04121c;
+  }
+  .bt-waze { background: var(--waze); }
+  .bt-maps { background: var(--maps); }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; line-height: 1.6; }
+  @media print {
+    body { background: #fff; color: #000; }
+    .ponto { border: 1px solid #999; background: #fff; }
+    .info strong { color: #000; }
+    .botoes { display: none; }
+    .coords { color: #333; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏁 Volta do Lago — Pontos de Troca</h1>
+  <div class="sub">Canelas do Planalto · Lago Paranoá</div>
+  <div class="total">Volta completa ≈ 60 km · 13 trechos</div>
+</header>
+
+<div class="ponto largada">
+  <div class="top">
+    <span class="badge">⚑</span>
+    <div class="info">
+      <strong>Largada / Chegada — Lifebox Burger</strong>
+      <small>km 0,0 · próximo trecho: <b>5,0 km</b> até o PC 1</small>
+      <span class="coords">-15.8192816, -47.8354671</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.8192816,-47.8354671&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.8192816,-47.8354671">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">1</span>
+    <div class="info">
+      <strong>PC 1 — Igreja presbiteriana lago sul</strong>
+      <small>km 5,0 · próximo trecho: <b>2,5 km</b> até o PC 2</small>
+      <span class="coords">-15.8462124, -47.8729706</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.8462124,-47.8729706&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.8462124,-47.8729706">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">2</span>
+    <div class="info">
+      <strong>PC 2 — Igreja Perpétuo Socorro lago sul</strong>
+      <small>km 7,6 · próximo trecho: <b>5,1 km</b> até o PC 3</small>
+      <span class="coords">-15.8412399, -47.8961411</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.8412399,-47.8961411&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.8412399,-47.8961411">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">3</span>
+    <div class="info">
+      <strong>PC 3 — Estacionamento do STJ</strong>
+      <small>km 12,6 · próximo trecho: <b>3,7 km</b> até o PC 4</small>
+      <span class="coords">-15.8064833, -47.8650856</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.8064833,-47.8650856&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.8064833,-47.8650856">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">4</span>
+    <div class="info">
+      <strong>PC 4 — Concha acústica</strong>
+      <small>km 16,3 · próximo trecho: <b>3,3 km</b> até o PC 5</small>
+      <span class="coords">-15.7862043, -47.8378220</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.7862043,-47.8378220&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.7862043,-47.8378220">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">5</span>
+    <div class="info">
+      <strong>PC 5 — Estacionamento centro olímpico UnB</strong>
+      <small>km 19,6 · próximo trecho: <b>5,5 km</b> até o PC 6</small>
+      <span class="coords">-15.7649040, -47.8587227</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.7649040,-47.8587227&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.7649040,-47.8587227">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">6</span>
+    <div class="info">
+      <strong>PC 6 — Parque ecológico do lago norte</strong>
+      <small>km 25,1 · próximo trecho: <b>7,4 km</b> até o PC 7</small>
+      <span class="coords">-15.7281866, -47.8929291</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.7281866,-47.8929291&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.7281866,-47.8929291">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">7</span>
+    <div class="info">
+      <strong>PC 7 — QL igreja batista do lago</strong>
+      <small>km 32,5 · próximo trecho: <b>7,0 km</b> até o PC 8</small>
+      <span class="coords">-15.7596302, -47.8322144</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.7596302,-47.8322144&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.7596302,-47.8322144">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">8</span>
+    <div class="info">
+      <strong>PC 8 — CA 3</strong>
+      <small>km 39,4 · próximo trecho: <b>8,2 km</b> até o PC 9</small>
+      <span class="coords">-15.7153816, -47.8786278</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.7153816,-47.8786278&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.7153816,-47.8786278">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">9</span>
+    <div class="info">
+      <strong>PC 9 — MIML7</strong>
+      <small>km 47,7 · próximo trecho: <b>4,7 km</b> até o PC 10</small>
+      <span class="coords">-15.7596121, -47.8171005</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.7596121,-47.8171005&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.7596121,-47.8171005">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">10</span>
+    <div class="info">
+      <strong>PC 10 — Parque urbano do Paranoá</strong>
+      <small>km 52,4 · próximo trecho: <b>4,0 km</b> até o PC 11</small>
+      <span class="coords">-15.7863016, -47.7831116</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.7863016,-47.7831116&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.7863016,-47.7831116">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">11</span>
+    <div class="info">
+      <strong>PC 11 — QI 28 conjunto 2/3</strong>
+      <small>km 56,4 · próximo trecho: <b>1,4 km</b> até o PC 12</small>
+      <span class="coords">-15.8146868, -47.8064079</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.8146868,-47.8064079&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.8146868,-47.8064079">Maps</a>
+  </div>
+</div>
+
+<div class="ponto">
+  <div class="top">
+    <span class="badge">12</span>
+    <div class="info">
+      <strong>PC 12 — Saída do parque ecológico Copaíba</strong>
+      <small>km 57,8 · trecho final: <b>2,2 km</b> até a Chegada</small>
+      <span class="coords">-15.8238792, -47.8159332</span>
+    </div>
+  </div>
+  <div class="botoes">
+    <a class="bt-waze" href="https://waze.com/ul?ll=-15.8238792,-47.8159332&navigate=yes">➤ Waze</a>
+    <a class="bt-maps" href="https://www.google.com/maps/search/?api=1&query=-15.8238792,-47.8159332">Maps</a>
+  </div>
+</div>
+
+<footer>
+  Distâncias em linha reta entre pontos (as oficiais da prova).<br>
+  Coordenadas do percurso oficial — Volta ao Lago Paranoá, Brasília/DF.<br>
+  Funciona offline: salve esta página no celular ou envie o arquivo no grupo.
+</footer>
+</body>
+</html>
