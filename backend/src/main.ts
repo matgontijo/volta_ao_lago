@@ -38,7 +38,7 @@ async function bootstrap() {
             directives: {
               'default-src': ["'self'"],
               'script-src': ["'self'"],
-              'style-src': ["'self'", "'unsafe-inline'"],
+              'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
               'img-src': [
                 "'self'",
                 'data:',
@@ -47,7 +47,7 @@ async function bootstrap() {
                 'https://*.tile.openstreetmap.org',
               ],
               'connect-src': ["'self'", 'ws:', 'wss:'],
-              'font-src': ["'self'", 'data:'],
+              'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com'],
               'worker-src': ["'self'", 'blob:'],
               'manifest-src': ["'self'"],
               'object-src': ["'none'"],

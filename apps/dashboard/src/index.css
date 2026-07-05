@@ -243,11 +243,20 @@ h1, h2, h3, strong, .brand-name { font-family: 'Sora', 'Inter', sans-serif; }
 /* ---------- Login gate: inputs ---------- */
 .gate-input {
   display: block; width: 100%; box-sizing: border-box; margin-bottom: 10px;
-  background: var(--bg); border: 1px solid var(--line); color: var(--text);
-  border-radius: 10px; padding: 12px 14px; font-size: 14px; font-family: 'Inter', sans-serif;
+  background: rgba(6,16,28,.75); border: 1px solid var(--line); color: var(--text);
+  border-radius: 12px; padding: 13px 15px; font-size: 14px; font-family: 'Inter', sans-serif;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
-.gate-input:focus { outline: none; border-color: var(--accent); }
-.gate-alt { display: block; margin: 12px auto 0; background: none; border: none; color: var(--muted); font-size: 12px; cursor: pointer; text-decoration: underline; }
+.gate-input::placeholder { color: #5c7292; }
+.gate-input:focus {
+  outline: none; border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(247,201,72,.14);
+}
+.gate-alt {
+  display: block; margin: 14px auto 0; background: none; border: none;
+  color: var(--muted); font-size: 12.5px; cursor: pointer; text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .gate-alt:hover { color: var(--text); }
 
 /* ---------- Gestão ---------- */
@@ -309,15 +318,96 @@ h1, h2, h3, strong, .brand-name { font-family: 'Sora', 'Inter', sans-serif; }
 .pc-edit-dot:active { cursor: grabbing; }
 
 /* ---------- Login gate ---------- */
-.gate { height: 100%; display: grid; place-items: center; }
-.gate-card { text-align: center; background: var(--surface); border: 1px solid var(--line); padding: 44px 48px; border-radius: 22px; box-shadow: var(--shadow); }
-.gate-card .logo { margin: 0 auto; }
-.gate-card h1 { margin: 18px 0 0; font-size: 30px; }
-.gate-card p { color: var(--muted); margin: 4px 0 22px; letter-spacing: 2px; text-transform: uppercase; font-size: 12px; }
-.gate-error { color: var(--bad); margin-bottom: 14px; font-size: 14px; }
-.enter { background: var(--accent); color: var(--accent-ink); border: none; border-radius: 12px; padding: 15px 26px; font-size: 15px; font-weight: 800; cursor: pointer; font-family: 'Sora', sans-serif; }
-.enter:hover { filter: brightness(1.08); }
-.enter:disabled { opacity: .5; }
+.gate { position: relative; height: 100%; display: grid; place-items: center; padding: 22px; overflow: hidden; }
+.gate-scene {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(700px 440px at 15% 8%, rgba(247,201,72,.06), transparent 60%),
+    radial-gradient(820px 520px at 88% 92%, rgba(79,138,255,.09), transparent 60%);
+}
+.gate-route { width: 100%; height: 100%; display: block; }
+
+.gate-card {
+  position: relative; width: min(410px, 100%); text-align: center;
+  padding: 42px 38px 26px; border-radius: 26px;
+  background: linear-gradient(180deg, rgba(13,29,49,.9), rgba(9,23,39,.96));
+  border: 1px solid rgba(79,138,255,.16);
+  box-shadow: 0 30px 80px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.05);
+  backdrop-filter: blur(14px);
+}
+.gate-card::before {
+  content: ''; position: absolute; top: 0; left: 22%; right: 22%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent); opacity: .85;
+}
+
+.gate-logo-wrap { position: relative; width: 98px; height: 98px; margin: 0 auto 18px; }
+.gate-logo {
+  width: 98px; height: 98px; border-radius: 26px; object-fit: cover; display: block;
+  box-shadow: 0 14px 34px rgba(0,0,0,.55);
+}
+.gate-logo-ring {
+  position: absolute; inset: -7px; border-radius: 32px; padding: 2px;
+  background: conic-gradient(from 130deg, transparent 0 62%, rgba(247,201,72,.95) 78%, transparent 94%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: gate-ring-spin 7s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(247,201,72,.35));
+}
+@keyframes gate-ring-spin { to { transform: rotate(360deg); } }
+
+.gate-card h1 { margin: 0; font-size: 27px; letter-spacing: -.4px; }
+.gate-sub {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  color: var(--muted); font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  margin: 9px 0 26px; white-space: nowrap;
+}
+.gate-sub::before, .gate-sub::after { content: ''; height: 1px; width: 36px; background: var(--line); }
+
+.gate-error {
+  background: rgba(251,113,133,.09); border: 1px solid rgba(251,113,133,.35);
+  color: #fda4af; border-radius: 12px; padding: 11px 14px; font-size: 13px;
+  line-height: 1.5; margin-bottom: 14px; text-align: left;
+}
+
+.enter {
+  width: 100%; padding: 16px; font-size: 15px; font-weight: 800; letter-spacing: .2px;
+  border: none; border-radius: 14px; cursor: pointer; color: #221a04;
+  font-family: 'Sora', sans-serif;
+  background: linear-gradient(180deg, #ffdd76, var(--gold));
+  box-shadow: 0 10px 28px rgba(247,201,72,.22), inset 0 1px 0 rgba(255,255,255,.55);
+  transition: transform .15s ease, box-shadow .2s ease;
+}
+.enter:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(247,201,72,.32), inset 0 1px 0 rgba(255,255,255,.55); }
+.enter:active:not(:disabled) { transform: translateY(0); }
+.enter:disabled { opacity: .55; cursor: default; }
+.enter-dots::after { content: '…'; animation: gate-dots 1.2s steps(4) infinite; }
+@keyframes gate-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+
+.gate-msg { color: var(--muted); font-size: 14px; margin: 0 0 6px; }
+.gate-spinner {
+  width: 34px; height: 34px; border-radius: 50%; margin: 4px auto 16px;
+  border: 3px solid var(--line); border-top-color: var(--gold);
+  animation: gate-spin .9s linear infinite;
+}
+@keyframes gate-spin { to { transform: rotate(360deg); } }
+
+.gate-foot {
+  margin-top: 24px; padding-top: 15px; border-top: 1px solid var(--line-soft);
+  color: var(--muted); font-size: 11.5px; letter-spacing: .4px;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.gate-live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--ok);
+  box-shadow: 0 0 9px var(--ok); animation: gate-pulse 2.2s ease-in-out infinite;
+}
+@keyframes gate-pulse { 50% { opacity: .35; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-mover { display: none; }
+  .gate-logo-ring, .gate-live-dot { animation: none; }
+}
 
 /* ---------- Leaflet dark tweaks ---------- */
 .leaflet-tooltip { background: #0c1322; border: 1px solid var(--line); color: var(--text); box-shadow: var(--shadow); border-radius: 8px; font-family: 'Inter', sans-serif; }

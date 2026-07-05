@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AdminPanel } from './components/AdminPanel';
 import { AlertSettings, type AlertPrefs } from './components/AlertSettings';
 import { AlertsFeed } from './components/AlertsFeed';
@@ -67,28 +67,20 @@ export function App() {
 
   if (specState === 'checking') {
     return (
-      <div className="gate">
-        <div className="gate-card">
-          <img src="/logo.png" className="logo big" alt="Logo" />
-          <h1>Canelas do Planalto</h1>
-          <p>Validando link do espectador…</p>
-        </div>
-      </div>
+      <GateShell sub="Link do espectador">
+        <div className="gate-spinner" aria-hidden />
+        <p className="gate-msg">Validando seu acesso…</p>
+      </GateShell>
     );
   }
   if (specState === 'error') {
     return (
-      <div className="gate">
-        <div className="gate-card">
-          <img src="/logo.png" className="logo big" alt="Logo" />
-          <h1>Canelas do Planalto</h1>
-          <p>Link do espectador</p>
-          <div className="gate-error">⚠️ {specError} — peça um link novo à organização.</div>
-          <button className="enter" onClick={() => setSpecState('idle')}>
-            Entrar como organização
-          </button>
-        </div>
-      </div>
+      <GateShell sub="Link do espectador">
+        <div className="gate-error">⚠️ {specError} — peça um link novo à organização.</div>
+        <button className="enter" onClick={() => setSpecState('idle')}>
+          Entrar como organização
+        </button>
+      </GateShell>
     );
   }
 
@@ -571,6 +563,55 @@ function Tower({
   );
 }
 
+/**
+ * Moldura das telas de entrada (login da torre e estados do espectador):
+ * circuito animado ao fundo — um "lago" com marcadores percorrendo o traçado,
+ * como no mapa ao vivo — e cartão de vidro com o logo em anel dourado.
+ */
+function GateShell({ sub, children }: { sub?: string; children: ReactNode }) {
+  const loop =
+    'M 200,400 C 180,260 320,150 520,170 C 700,190 760,90 920,140 ' +
+    'C 1080,190 1060,360 960,450 C 880,520 900,640 760,660 ' +
+    'C 620,680 560,600 440,620 C 300,640 220,540 200,400 Z';
+  return (
+    <div className="gate">
+      <div className="gate-scene" aria-hidden>
+        <svg className="gate-route" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+          <path id="gate-loop" d={loop} fill="none" stroke="#38e0c8" strokeOpacity="0.14" strokeWidth="2.5" />
+          <path d={loop} fill="none" stroke="#38e0c8" strokeOpacity="0.30" strokeWidth="7"
+            strokeLinecap="round" strokeDasharray="0.5 132" />
+          <g className="gate-mover">
+            <circle r="11" fill="#f7c948" opacity="0.14" />
+            <circle r="4" fill="#f7c948" opacity="0.85" />
+            <animateMotion dur="26s" repeatCount="indefinite">
+              <mpath href="#gate-loop" />
+            </animateMotion>
+          </g>
+          <g className="gate-mover">
+            <circle r="10" fill="#4f8aff" opacity="0.14" />
+            <circle r="3.5" fill="#4f8aff" opacity="0.85" />
+            <animateMotion dur="42s" repeatCount="indefinite" begin="-21s">
+              <mpath href="#gate-loop" />
+            </animateMotion>
+          </g>
+        </svg>
+      </div>
+      <div className="gate-card">
+        <div className="gate-logo-wrap">
+          <span className="gate-logo-ring" aria-hidden />
+          <img src="/logo.png" className="gate-logo" alt="Canelas do Planalto" />
+        </div>
+        <h1>Canelas do Planalto</h1>
+        <div className="gate-sub">{sub ?? 'Torre de Comando'}</div>
+        {children}
+        <div className="gate-foot">
+          <span className="gate-live-dot" aria-hidden /> Volta do Lago · rastreamento ao vivo
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoginGate({ onToken }: { onToken: (t: string) => void }) {
   const [username, setUsername] = useState('torre');
   const [password, setPassword] = useState('');
@@ -613,51 +654,53 @@ function LoginGate({ onToken }: { onToken: (t: string) => void }) {
   }
 
   return (
-    <div className="gate">
-      <div className="gate-card">
-        <img src="/logo.png" className="logo big" alt="Logo" />
-        <h1>Canelas do Planalto</h1>
-        <p>Torre de Comando</p>
-        {error && <div className="gate-error">{error}</div>}
-        {showForm ? (
-          <>
-            <input
-              className="gate-input"
-              value={username}
-              autoCapitalize="none"
-              autoComplete="username"
-              placeholder="Usuário"
-              onChange={(e) => setUsername(e.target.value)}
-            />
-            <input
-              className="gate-input"
-              type="password"
-              value={password}
-              autoComplete="current-password"
-              placeholder="Senha"
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && username.trim() && password && formEnter()}
-            />
-            <button
-              className="enter"
-              disabled={busy || !username.trim() || !password}
-              onClick={formEnter}
-            >
-              {busy ? 'Entrando…' : 'Entrar'}
-            </button>
-          </>
-        ) : (
-          <>
-            <button className="enter" disabled={busy} onClick={quickEnter}>
-              {busy ? 'Entrando…' : 'Entrar'}
-            </button>
-            <button className="link gate-alt" onClick={() => setShowForm(true)}>
-              entrar com usuário e senha
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+    <GateShell>
+      {error && <div className="gate-error">{error}</div>}
+      {showForm ? (
+        <>
+          <input
+            className="gate-input"
+            value={username}
+            autoCapitalize="none"
+            autoComplete="username"
+            placeholder="Usuário"
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <input
+            className="gate-input"
+            type="password"
+            value={password}
+            autoComplete="current-password"
+            placeholder="Senha"
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && username.trim() && password && formEnter()}
+          />
+          <button
+            className="enter"
+            disabled={busy || !username.trim() || !password}
+            onClick={formEnter}
+          >
+            {busy ? 'Entrando…' : 'Entrar'}
+          </button>
+          <button className="gate-alt" onClick={() => { setShowForm(false); }}>
+            voltar para o acesso rápido
+          </button>
+        </>
+      ) : (
+        <>
+          <button className="enter" disabled={busy} onClick={quickEnter}>
+            {busy ? (
+              <>Entrando<span className="enter-dots" aria-hidden /></>
+            ) : (
+              <>Entrar na torre <span aria-hidden>→</span></>
+            )}
+          </button>
+          <button className="gate-alt" onClick={() => setShowForm(true)}>
+            entrar com usuário e senha
+          </button>
+        </>
+      )}
+    </GateShell>
   );
 }
 
