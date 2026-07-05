@@ -18,6 +18,7 @@
     "dev:dashboard": "npm --workspace apps/dashboard run dev",
     "dev": "concurrently -n backend,mobile,dash -c blue,green,magenta \"npm:dev:backend\" \"npm:dev:mobile\" \"npm:dev:dashboard\"",
     "sim": "node tools/simulator/index.mjs",
+    "swarm": "node tools/swarm-espectadores.mjs",
     "build:route": "node tools/build-route.mjs",
     "watchdog": "node tools/watchdog.mjs",
     "pm2:start": "pm2 start ecosystem.config.cjs",

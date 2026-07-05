@@ -196,6 +196,14 @@ volta-ao-lago/
 
 ## Notas de escala
 
+- **Espectadores em massa:** snapshot/timeline têm cache de rajada (1,5–3s) —
+  200 pessoas clicando no link ao mesmo tempo geram ~1 consulta ao banco, não
+  200 — e os estáticos saem com gzip. **Ensaie antes da prova** com o swarm:
+  `npm run swarm -- https://SEU-APP.onrender.com "TOKEN_DO_?s=" 200 90`
+  (200 espectadores falsos por 90s, com relatório de conexões/latência no fim).
+  Para centenas de espectadores, considere o Render **Starter** no mês da prova
+  (CPU dedicada, sem hibernação).
+
 - **WebSocket horizontal:** com `REDIS_URL` setado, o Socket.io Redis Adapter
   costura o fan-out entre N instâncias Node atrás de um load balancer. Vans e
   dashboards podem estar em instâncias diferentes.

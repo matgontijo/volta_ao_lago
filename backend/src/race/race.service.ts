@@ -160,8 +160,11 @@ export class RaceService implements OnModuleInit {
     return this.nextPcByTeam.get(Number(teamId)) ?? null;
   }
 
-  /** Limpa o cache de próximos PCs (após reset de prova) — memória e Redis. */
+  /** Limpa os caches de prova (após reset) — memória e Redis. */
   async resetCaches(): Promise<void> {
+    this.statesCache = null;
+    this.timelineCache = null;
+    this.positionsCache = null;
     for (const teamId of this.nextPcByTeam.keys()) {
       this.nextPcByTeam.set(teamId, null);
       await this.redis.setJson(`nextpc:${teamId}`, { pc: null }, NEXTPC_TTL_S);
@@ -274,8 +277,20 @@ export class RaceService implements OnModuleInit {
 
   // -------------------------------------------------------------------------
   // Linha do tempo da prova (feed ao vivo + auditoria de trocas).
+  // Cache de rajada só para a chamada padrão (sem teamId) — é a que todo
+  // espectador dispara ao conectar; invalidado a cada troca.
   // -------------------------------------------------------------------------
+  private timelineCache: { ts: number; limit: number; data: TimelineEvent[] } | null = null;
+
   async getTimeline(limit = 100, teamId?: number): Promise<TimelineEvent[]> {
+    if (
+      teamId == null &&
+      this.timelineCache &&
+      this.timelineCache.limit === limit &&
+      Date.now() - this.timelineCache.ts < 3000
+    ) {
+      return this.timelineCache.data;
+    }
     const params: unknown[] = [Math.min(Math.max(limit, 1), 500)];
     if (teamId != null) params.push(teamId);
     const res = await this.db.query<{
@@ -323,7 +338,7 @@ export class RaceService implements OnModuleInit {
         LIMIT $1`,
       params,
     );
-    return res.rows.map((r) => ({
+    const events = res.rows.map((r) => ({
       id: Number(r.id),
       ts: Number(r.ts),
       action: r.action,
@@ -341,6 +356,8 @@ export class RaceService implements OnModuleInit {
       lat: r.lat,
       lng: r.lng,
     }));
+    if (teamId == null) this.timelineCache = { ts: Date.now(), limit, data: events };
+    return events;
   }
 
   /** Recarrega o próximo PC da equipe (chamado após cada troca). */
@@ -363,18 +380,32 @@ export class RaceService implements OnModuleInit {
     const pc = res.rows[0] ?? null;
     this.nextPcByTeam.set(Number(teamId), pc);
     await this.redis.setJson(`nextpc:${teamId}`, { pc }, NEXTPC_TTL_S);
+    // Troca aconteceu: o snapshot cacheado ficou velho.
+    this.statesCache = null;
+    this.timelineCache = null;
   }
 
   // -------------------------------------------------------------------------
   // Estado de prova (DB + última posição GPS do Redis) com pace e ETA.
+  //
+  // Cache de rajada (1,5s): cada conexão nova de dashboard/espectador pede o
+  // snapshot — com o link público, 200 pessoas clicando juntas viravam 200
+  // consultas simultâneas. Com o cache, viram UMA. A troca invalida na hora
+  // (refreshNextPc), então o dado nunca fica atrasado no que importa.
   // -------------------------------------------------------------------------
+  private statesCache: { ts: number; data: TeamState[] } | null = null;
+
   async getTeamStates(): Promise<TeamState[]> {
+    if (this.statesCache && Date.now() - this.statesCache.ts < 1500) {
+      return this.statesCache.data;
+    }
     await this.ensureLoaded();
     const rows = await this.db.query<StateRow>('SELECT * FROM vw_team_state');
     const states: TeamState[] = [];
     for (const r of rows.rows) {
       states.push(await this.buildState(r));
     }
+    this.statesCache = { ts: Date.now(), data: states };
     return states;
   }
 
@@ -493,13 +524,20 @@ export class RaceService implements OnModuleInit {
   }
 
   /** Últimas posições de todos os veículos (para o snapshot inicial). */
+  private positionsCache: { ts: number; data: VehiclePosition[] } | null = null;
+
   async getSnapshotPositions(): Promise<VehiclePosition[]> {
+    // 1s de cache: posição muda a cada ~3s; rajada de conexões não martela o Redis.
+    if (this.positionsCache && Date.now() - this.positionsCache.ts < 1000) {
+      return this.positionsCache.data;
+    }
     await this.ensureLoaded();
     const out: VehiclePosition[] = [];
     for (const vehicleId of this.allVehicleIds) {
       const p = await this.redis.getJson<VehiclePosition>(`pos:${vehicleId}`);
       if (p) out.push(p);
     }
+    this.positionsCache = { ts: Date.now(), data: out };
     return out;
   }
 

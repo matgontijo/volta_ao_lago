@@ -6,6 +6,7 @@ import * as fs from 'fs';
 const expressStatic = require('express').static;
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import compression from 'compression';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './realtime/redis-io.adapter';
@@ -22,6 +23,10 @@ process.on('uncaughtException', (err) => {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // O Render free não comprime nada sozinho: sem isto, cada espectador baixa
+  // ~530 KB de JS/CSS no primeiro acesso; com gzip caem para ~140 KB.
+  app.use(compression());
 
   // CSP configurada (em vez de desligada): libera só o necessário — tiles do
   // Esri/OSM, estilos inline do React/Leaflet e WebSocket. Se algo quebrar no
