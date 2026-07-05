@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
+import { jwtSecret } from './jwt-secret';
 import { JwtProfile } from '../common/types';
 
 interface UserRow {
@@ -21,6 +22,11 @@ const VERSION_CACHE_TTL_MS = 30_000;
 @Injectable()
 export class AuthService {
   private versionCache = new Map<number, { ver: number; ts: number }>();
+
+  // Instância própria SEM signOptions: o token do espectador não pode herdar
+  // o expiresIn de 12h do módulo (herdar tornava a assinatura inválida e o
+  // link não-determinístico). Mesmo segredo → o verify() normal aceita.
+  private readonly spectatorJwt = new JwtService({ secret: jwtSecret() });
 
   constructor(
     private readonly db: DatabaseService,
@@ -86,7 +92,8 @@ export class AuthService {
       vehicleId: null,
       vehicleRole: null,
     };
-    const token = await this.jwt.signAsync(profile, { noTimestamp: true, expiresIn: undefined });
+    // noTimestamp remove o iat; sem exp o payload é fixo → token sempre igual.
+    const token = await this.spectatorJwt.signAsync(profile, { noTimestamp: true });
     return { token, expiresAt: null };
   }
 
