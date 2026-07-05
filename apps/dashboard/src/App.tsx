@@ -142,7 +142,7 @@ function Tower({
   }, [alertPrefs]);
 
   // WebSocket da torre (posições, estados, leaderboard, alertas, timeline)
-  const { connected, positions, states, leaderboard, alerts, timeline, pushAlert } =
+  const { connected, positions, states, leaderboard, alerts, timeline, presence, pushAlert } =
     useRaceSocket(token, {
       onAuthError: onLogout,
       onRouteUpdate: (points) =>
@@ -300,6 +300,7 @@ function Tower({
       now={now}
       staleSeconds={alertPrefs.staleSeconds}
       expected={expectedVehicles}
+      presence={presence}
     />
   );
   const boardEl = (

@@ -50,6 +50,18 @@ export interface NextPc {
   lng: number;
 }
 
+/**
+ * Presença de operador num veículo: registrada na CONEXÃO (QR + nome),
+ * antes mesmo do primeiro fix de GPS — a torre vê quem já entrou.
+ */
+export interface FleetPresence {
+  vehicleId: number;
+  teamId: number | null;
+  driverName: string | null;
+  socketId: string; // guarda de takeover: só o socket dono limpa a presença
+  connectedAt: number;
+}
+
 export interface TeamState {
   teamId: number;
   teamName: string;

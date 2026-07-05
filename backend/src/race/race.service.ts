@@ -144,6 +144,11 @@ export class RaceService implements OnModuleInit {
     return this.vehicleMeta.get(Number(vehicleId));
   }
 
+  /** Ids de todos os veículos cadastrados (presença de frota no gateway). */
+  getVehicleIds(): number[] {
+    return [...this.allVehicleIds];
+  }
+
   /**
    * Próximo PC da equipe (para geofence). Com Redis, a leitura é compartilhada
    * entre instâncias — a troca processada em um nó atualiza o geofence de todos.

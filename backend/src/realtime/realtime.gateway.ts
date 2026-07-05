@@ -18,12 +18,15 @@ import { SettingsService } from '../settings/settings.service';
 import { haversineMeters } from '../common/geo';
 import { sanitizeDriverName } from '../common/sanitize';
 import {
+  FleetPresence,
   GeofenceAlert,
   JwtProfile,
   PositionUpdate,
   TeamState,
   VehiclePosition,
 } from '../common/types';
+
+const PRESENCE_TTL_S = 24 * 3600; // dura o evento; some no disconnect
 
 @WebSocketGateway({ cors: { origin: true, credentials: true } })
 export class RealtimeGateway
@@ -67,6 +70,7 @@ export class RealtimeGateway
           states,
           leaderboard: this.race.buildLeaderboard(states),
           positions: await this.race.getSnapshotPositions(),
+          presence: await this.getAllPresence(),
         });
       } else if (profile.teamId) {
         client.join(`team:${profile.teamId}`);
@@ -81,6 +85,21 @@ export class RealtimeGateway
           });
           this.server.in(room).disconnectSockets(true);
           client.join(room);
+
+          // Presença: a torre vê QUEM entrou em cada veículo assim que o QR
+          // é lido e o nome informado — antes mesmo do primeiro fix de GPS.
+          const presence: FleetPresence = {
+            vehicleId: Number(profile.vehicleId),
+            teamId: profile.teamId,
+            driverName: driverName ?? null,
+            socketId: client.id,
+            connectedAt: Date.now(),
+          };
+          await this.redis.setJson(`presence:${profile.vehicleId}`, presence, PRESENCE_TTL_S);
+          this.server.to('dashboard').emit('fleet:presence', {
+            vehicleId: presence.vehicleId,
+            presence,
+          });
         }
       }
       this.logger.log(
@@ -99,6 +118,28 @@ export class RealtimeGateway
   handleDisconnect(client: Socket): void {
     const p = client.data.profile as JwtProfile | undefined;
     if (p) this.logger.log(`- desconectado: ${p.name}`);
+    if (p?.vehicleId) void this.clearPresence(Number(p.vehicleId), client.id);
+  }
+
+  /** Limpa a presença SÓ se este socket ainda for o dono (guarda de takeover). */
+  private async clearPresence(vehicleId: number, socketId: string): Promise<void> {
+    try {
+      const current = await this.redis.getJson<FleetPresence>(`presence:${vehicleId}`);
+      if (!current || current.socketId !== socketId) return; // outro celular assumiu
+      await this.redis.del(`presence:${vehicleId}`);
+      this.server.to('dashboard').emit('fleet:presence', { vehicleId, presence: null });
+    } catch {
+      /* presença é informativa; nunca derruba o disconnect */
+    }
+  }
+
+  private async getAllPresence(): Promise<FleetPresence[]> {
+    const out: FleetPresence[] = [];
+    for (const id of this.race.getVehicleIds()) {
+      const p = await this.redis.getJson<FleetPresence>(`presence:${id}`);
+      if (p) out.push(p);
+    }
+    return out;
   }
 
   // -------------------------------------------------------------------------
@@ -217,6 +258,7 @@ export class RealtimeGateway
       states,
       leaderboard: this.race.buildLeaderboard(states),
       positions: await this.race.getSnapshotPositions(),
+      presence: await this.getAllPresence(),
     });
   }
 

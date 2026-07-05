@@ -75,6 +75,15 @@ export class RedisService implements OnModuleInit {
     return true;
   }
 
+  /** Remove uma chave (presença de veículo ao desconectar etc.). */
+  async del(key: string): Promise<void> {
+    if (this.client) {
+      await this.client.del(key);
+    } else {
+      this.mem.delete(key);
+    }
+  }
+
   /** Índice GEO opcional (consultas de proximidade no dashboard). No-op sem Redis. */
   async geoAdd(key: string, lng: number, lat: number, member: string): Promise<void> {
     if (this.client) {

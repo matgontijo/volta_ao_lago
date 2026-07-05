@@ -1,4 +1,4 @@
-import type { VehiclePosition } from '../lib/types';
+import type { FleetPresence, VehiclePosition } from '../lib/types';
 
 export interface ExpectedVehicle {
   vehicleId: number;
@@ -13,11 +13,14 @@ export function FleetPanel({
   now,
   staleSeconds = 30,
   expected = [],
+  presence = {},
 }: {
   positions: VehiclePosition[];
   now: number;
   staleSeconds?: number;
   expected?: ExpectedVehicle[];
+  /** Quem está conectado em cada veículo (QR + nome), mesmo sem GPS ainda. */
+  presence?: Record<number, FleetPresence | null>;
 }) {
   const byId = new Map(positions.map((p) => [p.vehicleId, p]));
 
@@ -46,21 +49,27 @@ export function FleetPanel({
       <h2><span className="h2-ico" aria-hidden>🚐</span> Frota — rastreio</h2>
       <ul className="fleet">
         {rows.map(({ meta, pos }) => {
+          const pres = presence[meta.vehicleId] ?? null;
+          const driver = pos?.driverName ?? pres?.driverName ?? null;
           const ageS = pos ? Math.max(0, Math.floor((now - pos.ts) / 1000)) : null;
           const stale = ageS == null || ageS > staleSeconds;
           return (
-            <li key={meta.vehicleId} className={stale ? 'stale' : ''}>
+            <li key={meta.vehicleId} className={stale && !pres ? 'stale' : ''}>
               <i className="swatch" style={{ background: meta.colorHex }} />
               <span className="fleet-name">
                 {meta.teamName.replace('Canelas do Planalto — ', '')}
                 <small>
                   {meta.role === 'van_pickup' ? 'Van (pick-up)' : 'Carro (drop-off)'}
-                  {pos?.driverName && <span className="fleet-driver"> · 👤 {pos.driverName}</span>}
+                  {driver && <span className="fleet-driver"> · 👤 {driver}</span>}
                 </small>
               </span>
               <span className="fleet-meta">
                 {ageS == null ? (
-                  <span className="bad">sem sinal</span>
+                  pres ? (
+                    <span className="conn">conectado · sem GPS</span>
+                  ) : (
+                    <span className="bad">sem sinal</span>
+                  )
                 ) : (
                   <span className={stale ? 'bad' : 'ok'}>
                     {stale ? `⚠ ${ageS}s` : `há ${ageS}s`}

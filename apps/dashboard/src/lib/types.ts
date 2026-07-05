@@ -100,10 +100,19 @@ export interface GeofenceAlert {
   ts: number;
 }
 
+/** Quem está conectado em cada veículo (QR lido + nome), mesmo sem GPS ainda. */
+export interface FleetPresence {
+  vehicleId: number;
+  teamId: number | null;
+  driverName: string | null;
+  connectedAt: number;
+}
+
 export interface Snapshot {
   states: TeamState[];
   leaderboard: LeaderboardRow[];
   positions: VehiclePosition[];
+  presence?: FleetPresence[];
 }
 
 export interface ReplayFrame {
