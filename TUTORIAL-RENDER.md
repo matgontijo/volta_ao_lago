@@ -64,9 +64,11 @@ Salve → ele faz o deploy. Quando ficar **Live**, teste:
 
 ## Passo 5 — Usar
 
-- Abra a **raiz** (dashboard) → entre com **`torre` / `volta2026`**.
-- No celular, abra **`/mobile/`** → **Adicionar à tela inicial** → entre como
-  co-piloto (ou escaneie o QR no dashboard em **Acessos / QR**) → permita a localização.
+- Abra a **raiz** (dashboard) → clique **Entrar** (sem senha).
+- No celular, abra **`/mobile/`** → **Adicionar à tela inicial** → toque no
+  **seu veículo** na lista (sem senha) → permita a localização. Alternativa:
+  escaneie o QR do dashboard em **Acessos / QR**.
+- Para exigir senha em tudo (fechar o acesso), defina `OPEN_LOGIN=off` no Render.
 
 ---
 

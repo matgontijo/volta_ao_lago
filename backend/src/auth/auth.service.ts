@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../database/database.service';
 import { JwtProfile } from '../common/types';
@@ -70,10 +70,13 @@ export class AuthService {
     return profile;
   }
 
-  /** Link público somente-leitura do mapa ao vivo (espectadores/famílias). */
-  async issueSpectatorToken(
-    expiresIn = '30d',
-  ): Promise<{ token: string; expiresAt: string }> {
+  /**
+   * Link público somente-leitura do mapa ao vivo (espectadores/famílias).
+   * DETERMINÍSTICO: sem iat/exp, o mesmo JWT_SECRET produz sempre o MESMO
+   * token — existe um único link de espectador, gere quantas vezes quiser.
+   * Revogação: trocar o JWT_SECRET (invalida todos os tokens do sistema).
+   */
+  async issueSpectatorToken(): Promise<{ token: string; expiresAt: null }> {
     const profile: JwtProfile = {
       sub: 0,
       name: 'Espectador',
@@ -83,9 +86,54 @@ export class AuthService {
       vehicleId: null,
       vehicleRole: null,
     };
-    const token = await this.jwt.signAsync(profile, { expiresIn });
-    const { exp } = this.jwt.decode(token) as { exp: number };
-    return { token, expiresAt: new Date(exp * 1000).toISOString() };
+    const token = await this.jwt.signAsync(profile, { noTimestamp: true, expiresIn: undefined });
+    return { token, expiresAt: null };
+  }
+
+  /**
+   * Login SEM senha (pedido da organização: "ninguém se perde no dia da
+   * prova"). Habilitado por padrão; OPEN_LOGIN=off volta a exigir senha em
+   * tudo sem mexer em código.
+   */
+  async quickLogin(username: string) {
+    this.assertOpenLogin();
+    const res = await this.db.query<Omit<UserRow, 'ok'>>(
+      `SELECT u.id, u.display_name, u.role, u.team_id,
+              t.name AS team_name,
+              u.vehicle_id, v.role AS vehicle_role,
+              u.token_version
+         FROM users u
+         LEFT JOIN teams t    ON t.id = u.team_id
+         LEFT JOIN vehicles v ON v.id = u.vehicle_id
+        WHERE u.username = $1`,
+      [username],
+    );
+    const row = res.rows[0];
+    if (!row) throw new UnauthorizedException('Usuário inexistente');
+    const profile = this.toProfile(row);
+    // 7 dias: o celular do co-piloto atravessa o fim de semana da prova logado.
+    return { token: await this.jwt.signAsync(profile, { expiresIn: '7d' }), profile };
+  }
+
+  /** Lista de acessos para os botões do login sem senha (van/carro por equipe). */
+  async quickRoster() {
+    this.assertOpenLogin();
+    const res = await this.db.query(
+      `SELECT u.username, u.display_name, t.name AS team_name, t.color_hex,
+              v.role AS vehicle_role
+         FROM users u
+         LEFT JOIN teams t    ON t.id = u.team_id
+         LEFT JOIN vehicles v ON v.id = u.vehicle_id
+        WHERE u.role <> 'org'
+        ORDER BY u.team_id, u.role DESC`,
+    );
+    return res.rows;
+  }
+
+  private assertOpenLogin(): void {
+    if ((process.env.OPEN_LOGIN ?? 'on').toLowerCase() === 'off') {
+      throw new ForbiddenException('Login rápido desativado — use usuário e senha');
+    }
   }
 
   /** Emite um token de login para um usuário (link mágico / QR). Sem senha. */

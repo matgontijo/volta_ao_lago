@@ -23,6 +23,7 @@ import {
   login,
   movePc,
   optimizeRoute,
+  quickLogin,
   rebuildRoute,
   reorderPcs,
   resetRace,
@@ -575,22 +576,21 @@ function LoginGate({ onToken }: { onToken: (t: string) => void }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Um clique só ("o pessoal se perde"): tenta a senha padrão da torre.
-  // Se a organização trocar a senha na Gestão, cai no formulário completo —
-  // ou seja, dá para fechar o acesso sem mexer em código.
+  // Um clique só, sem senha ("o pessoal se perde"). Se o servidor estiver com
+  // OPEN_LOGIN=off, cai no formulário completo automaticamente.
   const [showForm, setShowForm] = useState(false);
 
   async function quickEnter() {
     setBusy(true);
     setError(null);
     try {
-      const { token } = await login('torre', 'volta2026');
+      const { token } = await quickLogin('torre');
       onToken(token);
     } catch (e) {
       const msg = (e as Error).message;
-      if (msg.toLowerCase().includes('inválid')) {
+      if (msg.toLowerCase().includes('desativado')) {
         setShowForm(true);
-        setError('A senha da torre foi alterada — informe usuário e senha.');
+        setError('Login rápido desativado — informe usuário e senha.');
       } else {
         setError(`${msg} — o servidor pode estar acordando (~30s no plano free); tente de novo.`);
       }

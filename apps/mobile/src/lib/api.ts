@@ -21,6 +21,36 @@ export async function fetchDriveRoute(teamId: number): Promise<DriveRoute | null
   return body ? (JSON.parse(body) as DriveRoute) : null;
 }
 
+/** Um acesso da lista do login sem senha (van/carro de cada equipe). */
+export interface QuickUser {
+  username: string;
+  display_name: string;
+  team_name: string | null;
+  color_hex: string | null;
+  vehicle_role: 'van_pickup' | 'carro_dropoff' | null;
+}
+
+/** Botões do login sem senha. Falha se OPEN_LOGIN=off no servidor. */
+export async function quickRoster(): Promise<QuickUser[]> {
+  const res = await fetch(`${API_URL}/auth/quick-roster`);
+  if (!res.ok) throw new Error('Login rápido desativado');
+  return res.json();
+}
+
+/** Login sem senha (1 toque no seu veículo). */
+export async function quickLogin(username: string): Promise<LoginResult> {
+  const res = await fetch(`${API_URL}/auth/quick-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message ?? 'Falha no login');
+  }
+  return res.json();
+}
+
 export async function login(username: string, password: string): Promise<LoginResult> {
   const res = await fetch(`${API_URL}/auth/login`, {
     method: 'POST',

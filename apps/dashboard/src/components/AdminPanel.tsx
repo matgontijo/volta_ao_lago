@@ -20,7 +20,7 @@ interface QrInfo {
   dataUrl: string;
   link: string;
   token: string;
-  expiresAt: string;
+  expiresAt: string | null; // null = link permanente (espectador)
   check: 'idle' | 'checking' | 'ok' | 'fail';
   checkMsg?: string;
 }
@@ -121,22 +121,14 @@ export function AdminPanel({ token, onClose }: { token: string; onClose: () => v
               <strong>Link público do espectador</strong>
               <small>
                 Mapa ao vivo somente-leitura — compartilhe com famílias e atletas.
-                Sem botões de troca, sem acesso à gestão.
+                É <b>um link só, permanente</b>: gerar de novo mostra o mesmo.
               </small>
             </div>
           </div>
           {spec ? (
             <div className="acc-qr">
               <img className="qr" src={spec.dataUrl} alt="QR do espectador" />
-              <small className="muted">
-                válido até{' '}
-                {new Date(spec.expiresAt).toLocaleString('pt-BR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </small>
+              <small className="muted">🔗 link único e permanente</small>
               <div className="acc-qr-actions">
                 <button className="ctrl" onClick={copySpectator}>
                   {specCopied ? 'Copiado ✓' : 'Copiar link'}
@@ -145,7 +137,7 @@ export function AdminPanel({ token, onClose }: { token: string; onClose: () => v
             </div>
           ) : (
             <button className="ctrl primary" onClick={genSpectator}>
-              Gerar link
+              Mostrar link
             </button>
           )}
         </div>
@@ -166,13 +158,14 @@ export function AdminPanel({ token, onClose }: { token: string; onClose: () => v
                   <div className="acc-qr">
                     <img className="qr" src={info.dataUrl} alt={`QR ${u.username}`} />
                     <small className="muted">
-                      válido até{' '}
-                      {new Date(info.expiresAt).toLocaleString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {info.expiresAt
+                        ? `válido até ${new Date(info.expiresAt).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}`
+                        : '🔗 link permanente'}
                     </small>
                     <div className="acc-qr-actions">
                       <button className="ctrl" onClick={() => copy(u.id)}>

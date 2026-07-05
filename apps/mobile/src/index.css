@@ -98,6 +98,23 @@ h1, .hero-athlete, .hero-timer, .brand h1, .btn { font-family: 'Sora', 'Inter', 
 .drive-strip { background: rgba(51,204,255,.1); border: 1px solid rgba(51,204,255,.3); color: #bae6fd; padding: 14px 16px; border-radius: 16px; font-weight: 600; font-size: 14px; display: flex; gap: 10px; align-items: center; }
 .drive-strip b { color: #fff; }
 
+/* Login sem senha: um botão por veículo. */
+.vehicle-list { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 4px; }
+.vehicle-btn {
+  display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12);
+  border-left: 4px solid #64748b; border-radius: 14px; padding: 14px;
+  color: inherit; cursor: pointer;
+}
+.vehicle-btn:active { background: rgba(255,255,255,.1); }
+.vehicle-btn:disabled { opacity: .55; }
+.vehicle-ico { font-size: 22px; }
+.vehicle-label { flex: 1; min-width: 0; }
+.vehicle-label strong { display: block; font-size: 15px; }
+.vehicle-label small { display: block; opacity: .65; font-size: 12px; margin-top: 2px; }
+.login-alt { display: block; margin: 14px auto 0; background: none; border: none; opacity: .6; font-size: 12px; text-decoration: underline; color: inherit; }
+.muted-center { text-align: center; opacity: .6; font-size: 13px; }
+
 /* Projeção da VOLTA COMPLETA (🏁) — visual distinto do ETA do próximo PC. */
 .finish-strip { background: rgba(74,222,128,.08); border: 1px solid rgba(74,222,128,.3); color: #bbf7d0; padding: 14px 16px; border-radius: 16px; font-weight: 600; font-size: 14px; display: flex; gap: 10px; align-items: center; }
 .finish-strip b { color: #fff; }

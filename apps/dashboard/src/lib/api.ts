@@ -95,14 +95,30 @@ export async function validateMagicToken(magicToken: string): Promise<{ name: st
   return res.json();
 }
 
-/** Link público somente-leitura do mapa ao vivo (espectadores). */
+/** Link público somente-leitura do mapa ao vivo (único e permanente). */
 export async function getSpectatorLink(
   token: string,
-): Promise<{ token: string; expiresAt: string }> {
+): Promise<{ token: string; expiresAt: string | null }> {
   const res = await fetch(`${API_URL}/admin/spectator-link`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error('Falha ao gerar link do espectador');
+  return res.json();
+}
+
+/** Login sem senha (1 toque) — OPEN_LOGIN=off no servidor desativa. */
+export async function quickLogin(
+  username: string,
+): Promise<{ token: string; profile: JwtProfile }> {
+  const res = await fetch(`${API_URL}/auth/quick-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message ?? 'Falha no login');
+  }
   return res.json();
 }
 

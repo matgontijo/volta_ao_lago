@@ -41,6 +41,31 @@ export class AuthController {
   me(@Req() req: { user: JwtProfile }) {
     return req.user;
   }
+
+  /** Login SEM senha (1 toque). Desative com OPEN_LOGIN=off. */
+  @Post('quick-login')
+  async quickLogin(
+    @Body() body: { username?: string },
+    @Req() req: { ip?: string; headers: Record<string, unknown> },
+  ) {
+    const ip = clientIp(req);
+    const username = (body.username ?? '').slice(0, 64);
+    this.limiter.assertAllowed(ip, username);
+    try {
+      const result = await this.auth.quickLogin(username);
+      this.limiter.registerSuccess(ip, username);
+      return result;
+    } catch (err) {
+      this.limiter.registerFailure(ip, username);
+      throw err;
+    }
+  }
+
+  /** Botões do login sem senha: van/carro de cada equipe. */
+  @Get('quick-roster')
+  quickRoster() {
+    return this.auth.quickRoster();
+  }
 }
 
 function clientIp(req: { ip?: string; headers: Record<string, unknown> }): string {
