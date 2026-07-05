@@ -30,6 +30,8 @@ export interface VehiclePosition {
   teamName: string;
   colorHex: string;
   role: 'carro_dropoff' | 'van_pickup' | null;
+  /** Nome informado pelo operador ao entrar (tela "Quem está operando?"). */
+  driverName: string | null;
   lat: number;
   lng: number;
   speedMps: number | null;

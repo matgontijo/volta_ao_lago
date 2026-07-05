@@ -239,6 +239,7 @@ h1, h2, h3, strong, .brand-name { font-family: 'Sora', 'Inter', sans-serif; }
 .export-info strong { display: block; font-size: 14px; }
 .export-info small { color: var(--muted); font-size: 12px; }
 .export-card.featured { border-color: var(--gold); background: rgba(247,201,72,.05); }
+.fleet-driver { color: var(--gold); font-weight: 600; }
 
 /* ---------- Login gate: inputs ---------- */
 .gate-input {

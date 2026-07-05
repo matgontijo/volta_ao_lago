@@ -117,15 +117,16 @@ export class RealtimeGateway
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     const meta = this.race.getVehicleMeta(p.vehicleId);
-    const baseTeamName = meta?.teamName ?? p.teamName ?? '';
-    const driverSuffix = client.data.driverName ? ` (${client.data.driverName})` : '';
 
     const payload: VehiclePosition = {
       vehicleId: Number(p.vehicleId),
       teamId: Number(p.teamId),
-      teamName: baseTeamName + driverSuffix,
+      teamName: meta?.teamName ?? p.teamName ?? '',
       colorHex: meta?.colorHex ?? '#2563EB',
       role: meta?.role ?? p.vehicleRole,
+      // Campo próprio (antes ia grudado no teamName): a torre mostra QUEM
+      // está operando cada veículo na Frota, no mapa e nos alertas.
+      driverName: (client.data.driverName as string | undefined) ?? null,
       lat,
       lng,
       speedMps: num(data.speedMps),

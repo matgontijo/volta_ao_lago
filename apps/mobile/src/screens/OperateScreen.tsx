@@ -10,6 +10,7 @@ import { openWaze } from '../lib/waze';
 interface Props {
   socket: Socket | null;
   profile: JwtProfile;
+  driverName?: string | null;
   onLogout: () => void;
 }
 
@@ -18,7 +19,7 @@ const isIOS =
   /iPad|iPhone|iPod/.test(navigator.userAgent) ||
   (navigator.userAgent.includes('Mac') && navigator.maxTouchPoints > 1);
 
-export function OperateScreen({ socket, profile, onLogout }: Props) {
+export function OperateScreen({ socket, profile, driverName, onLogout }: Props) {
   const geo = useGeoTracking(socket, { autoStart: false, intervalMs: 3000 });
   useWakeLock(geo.tracking);
 
@@ -156,7 +157,10 @@ export function OperateScreen({ socket, profile, onLogout }: Props) {
       <header className="topbar" style={{ borderColor: state?.colorHex ?? '#1e293b' }}>
         <div>
           <strong>{profile.teamName ?? '—'}</strong>
-          <span className="muted">{isOperator ? 'Van (pick-up)' : 'Carro (drop-off)'}</span>
+          <span className="muted">
+            {isOperator ? 'Van (pick-up)' : 'Carro (drop-off)'}
+            {driverName ? ` · 👤 ${driverName}` : ''}
+          </span>
         </div>
         <div className="status-dots">
           <span className={`dot ${connected ? 'ok' : 'bad'}`}>{connected ? 'online' : 'offline'}</span>

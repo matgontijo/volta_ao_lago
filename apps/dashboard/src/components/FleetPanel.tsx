@@ -53,7 +53,10 @@ export function FleetPanel({
               <i className="swatch" style={{ background: meta.colorHex }} />
               <span className="fleet-name">
                 {meta.teamName.replace('Canelas do Planalto — ', '')}
-                <small>{meta.role === 'van_pickup' ? 'Van (pick-up)' : 'Carro (drop-off)'}</small>
+                <small>
+                  {meta.role === 'van_pickup' ? 'Van (pick-up)' : 'Carro (drop-off)'}
+                  {pos?.driverName && <span className="fleet-driver"> · 👤 {pos.driverName}</span>}
+                </small>
               </span>
               <span className="fleet-meta">
                 {ageS == null ? (

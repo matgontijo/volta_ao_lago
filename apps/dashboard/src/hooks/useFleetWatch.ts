@@ -24,7 +24,8 @@ export function useFleetWatch(
       const limitMs = prefsRef.current.staleSeconds * 1000;
       const nowMs = Date.now();
       for (const p of Object.values(positions)) {
-        const label = `${p.teamName} — ${p.role === 'van_pickup' ? 'Van' : 'Carro'}`;
+        const quem = p.driverName ? ` (${p.driverName})` : '';
+        const label = `${p.teamName} — ${p.role === 'van_pickup' ? 'Van' : 'Carro'}${quem}`;
 
         const stale = nowMs - p.ts > limitMs;
         const was = staleAlerted.current[p.vehicleId] ?? false;

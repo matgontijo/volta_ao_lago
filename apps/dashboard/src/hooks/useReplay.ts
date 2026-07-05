@@ -31,6 +31,8 @@ export function useReplay() {
           teamName: fr.teamName,
           colorHex: fr.colorHex,
           role: fr.role,
+          driverName: null, // rastro persistido não guarda o operador
+
           lat: fr.lat,
           lng: fr.lng,
           speedMps: null,

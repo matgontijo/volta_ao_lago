@@ -118,7 +118,7 @@ export function App() {
 
   if (!token || !profile) return <LoginScreen onLogin={onLogin} />;
   if (!driverName) return <IdentityScreen onSave={(name) => { localStorage.setItem(DRIVER_KEY, name); setDriverName(name); }} />;
-  return <OperateScreen socket={socket} profile={profile} onLogout={logout} />;
+  return <OperateScreen socket={socket} profile={profile} driverName={driverName} onLogout={logout} />;
 }
 
 function IdentityScreen({ onSave }: { onSave: (name: string) => void }) {

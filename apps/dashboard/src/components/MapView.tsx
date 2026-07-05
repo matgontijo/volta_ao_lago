@@ -130,6 +130,12 @@ export function MapView({ pcs, positions, routePath, editMode, onMovePc, driveRo
                 <b>{p.teamName}</b>
                 <br />
                 {isVan ? 'Van (pick-up)' : 'Carro (drop-off)'}
+                {p.driverName && (
+                  <>
+                    <br />
+                    👤 {p.driverName}
+                  </>
+                )}
                 {p.speedMps != null && (
                   <>
                     <br />
