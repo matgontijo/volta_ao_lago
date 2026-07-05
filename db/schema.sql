@@ -151,8 +151,12 @@ CREATE TABLE IF NOT EXISTS position_logs (
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     location    GEOGRAPHY(Point, 4326) NOT NULL,
     speed_mps   REAL,
-    heading_deg REAL
+    heading_deg REAL,
+    battery_pct REAL                                   -- p/ relatório operacional
 );
+
+-- Bancos criados antes da coluna battery_pct (migração idempotente).
+ALTER TABLE position_logs ADD COLUMN IF NOT EXISTS battery_pct REAL;
 CREATE INDEX IF NOT EXISTS ix_poslog_vehicle_time
     ON position_logs (vehicle_id, recorded_at DESC);
 

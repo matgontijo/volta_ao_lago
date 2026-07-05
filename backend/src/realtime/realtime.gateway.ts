@@ -252,9 +252,9 @@ export class RealtimeGateway
     this.lastFlush.set(vehicleId, now);
     try {
       await this.db.query(
-        `INSERT INTO position_logs (vehicle_id, location, speed_mps, heading_deg)
-         VALUES ($1, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4, $5)`,
-        [vehicleId, pos.lng, pos.lat, pos.speedMps, pos.headingDeg],
+        `INSERT INTO position_logs (vehicle_id, location, speed_mps, heading_deg, battery_pct)
+         VALUES ($1, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4, $5, $6)`,
+        [vehicleId, pos.lng, pos.lat, pos.speedMps, pos.headingDeg, pos.batteryPct],
       );
     } catch {
       /* persistência de rastro é best-effort; não bloqueia o caminho quente */

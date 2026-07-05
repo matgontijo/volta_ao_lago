@@ -129,8 +129,11 @@ Além do escopo:
   (mesmo WebSocket da torre; gere em *Acessos / QR → Link do espectador*)
 - ✅ **Linha do tempo da prova** 📜 — feed ao vivo de cada troca (atleta que saiu/entrou,
   tempo do trecho, quem registrou; troca forçada pela torre fica marcada)
-- ✅ **Exportação CSV** 🧾 — classificação, resultados por trecho e trilha de auditoria
-  das trocas, prontos para Excel pt-BR (pode exportar durante a prova)
+- ✅ **Relatórios completos** 🧾 — **Espelho da Prova em HTML** (pódio por categoria,
+  destaques, gráfico de pace por trecho) + 5 CSVs Excel pt-BR: classificação
+  (geral + categoria + gap), trechos (velocidade, vs média, posição na hora),
+  por atleta (melhor/pior trecho), auditoria de trocas e operacional da frota
+  (quedas de sinal, bateria, distância real) — tudo exportável durante a prova
 - ✅ **Chegada prevista da volta completa** 🏁 — projeção separada do ETA do próximo PC
 - ✅ **Foco por equipe** no dashboard (chips no mapa: vê só uma equipe + seguir a van)
 - ✅ **Auth JWT** por equipe e papel (operador / motorista / organização)

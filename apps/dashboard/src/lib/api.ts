@@ -129,10 +129,19 @@ export async function fetchTimeline(limit = 100): Promise<import('./types').Time
   return res.json();
 }
 
-/** Baixa um CSV autenticado (Authorization não funciona em <a href>). */
+export type ExportTipo =
+  | 'espelho'
+  | 'classificacao'
+  | 'trechos'
+  | 'atletas'
+  | 'auditoria'
+  | 'operacional';
+
+/** Baixa (ou abre, com view=true) um relatório autenticado. */
 export async function downloadExport(
   token: string,
-  tipo: 'trechos' | 'classificacao' | 'auditoria',
+  tipo: ExportTipo,
+  opts: { view?: boolean } = {},
 ): Promise<void> {
   const res = await fetch(`${API_URL}/admin/export/${tipo}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -142,9 +151,14 @@ export async function downloadExport(
   const match = /filename="([^"]+)"/.exec(disposition);
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
+  if (opts.view) {
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
+  }
   const a = document.createElement('a');
   a.href = url;
-  a.download = match?.[1] ?? `${tipo}.csv`;
+  a.download = match?.[1] ?? `${tipo}`;
   document.body.appendChild(a);
   a.click();
   a.remove();

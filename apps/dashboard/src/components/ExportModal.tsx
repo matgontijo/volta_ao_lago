@@ -1,20 +1,31 @@
 import { useState } from 'react';
-import { downloadExport } from '../lib/api';
+import { downloadExport, type ExportTipo } from '../lib/api';
 
-type Tipo = 'trechos' | 'classificacao' | 'auditoria';
-
-const FILES: { tipo: Tipo; icon: string; title: string; desc: string }[] = [
+const FILES: { tipo: ExportTipo; icon: string; title: string; desc: string; html?: boolean }[] = [
+  {
+    tipo: 'espelho',
+    icon: '📄',
+    title: 'Espelho da Prova (HTML)',
+    desc: 'Relatório completo e bonito: pódio por categoria, destaques, classificação, gráfico de pace por trecho e o detalhe de cada equipe. Ideal para compartilhar e imprimir.',
+    html: true,
+  },
   {
     tipo: 'classificacao',
     icon: '🏆',
     title: 'Classificação',
-    desc: 'Posição final, trechos concluídos, tempo total e pace médio de cada equipe.',
+    desc: 'Posição geral E por categoria, gap para o líder, tempo total, pace médio e trocas registradas pela torre.',
   },
   {
     tipo: 'trechos',
     icon: '🏃',
     title: 'Resultados por trecho',
-    desc: 'Cada trecho de cada equipe: atleta, início/fim reais, duração, pace, GPS e quem registrou.',
+    desc: 'Cada trecho: atleta, tempos reais, pace, velocidade, comparação com a média da equipe, posição no momento e GPS.',
+  },
+  {
+    tipo: 'atletas',
+    icon: '🎽',
+    title: 'Por atleta',
+    desc: 'Consolidado individual: trechos corridos, km somados, tempo, pace médio, melhor e pior trecho — ranking por pace.',
   },
   {
     tipo: 'auditoria',
@@ -22,21 +33,27 @@ const FILES: { tipo: Tipo; icon: string; title: string; desc: string }[] = [
     title: 'Auditoria de trocas',
     desc: 'Trilha completa dos cliques: quando, quem (van ou torre/failover) e de onde cada troca foi registrada.',
   },
+  {
+    tipo: 'operacional',
+    icon: '🔧',
+    title: 'Operacional (frota)',
+    desc: 'Pós-mortem da logística: quedas de sinal por veículo, distância real rodada, velocidade máxima e bateria mínima.',
+  },
 ];
 
 /**
- * Exportação em CSV pronto para Excel pt-BR (acentos e separador corretos).
+ * Exportação da prova: Espelho em HTML + 5 CSVs prontos para Excel pt-BR.
  * Pode ser gerada DURANTE a prova (dados parciais) ou depois.
  */
 export function ExportModal({ token, onClose }: { token: string; onClose: () => void }) {
-  const [busy, setBusy] = useState<Tipo | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function baixar(tipo: Tipo) {
-    setBusy(tipo);
+  async function run(tipo: ExportTipo, view = false) {
+    setBusy(`${tipo}${view ? ':view' : ''}`);
     setError(null);
     try {
-      await downloadExport(token, tipo);
+      await downloadExport(token, tipo, { view });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -54,20 +71,33 @@ export function ExportModal({ token, onClose }: { token: string; onClose: () => 
           </button>
         </div>
         <p className="muted">
-          Planilhas CSV prontas para o Excel. Pode exportar <b>durante a prova</b>{' '}
-          (sai o parcial) — a auditoria serve como registro oficial das trocas.
+          Pode exportar <b>durante a prova</b> (sai o parcial). Os CSVs abrem
+          direto no Excel; o Espelho é a versão apresentável para o grupo.
         </p>
         {error && <div className="gate-error">{error}</div>}
         <div className="export-list">
           {FILES.map((f) => (
-            <div className="export-card" key={f.tipo}>
+            <div className={`export-card ${f.tipo === 'espelho' ? 'featured' : ''}`} key={f.tipo}>
               <span className="export-ico" aria-hidden>{f.icon}</span>
               <div className="export-info">
                 <strong>{f.title}</strong>
                 <small>{f.desc}</small>
               </div>
-              <button className="ctrl primary" disabled={busy != null} onClick={() => baixar(f.tipo)}>
-                {busy === f.tipo ? 'Gerando…' : 'Baixar CSV'}
+              {f.html && (
+                <button
+                  className="ctrl"
+                  disabled={busy != null}
+                  onClick={() => run(f.tipo, true)}
+                >
+                  {busy === `${f.tipo}:view` ? '…' : 'Visualizar'}
+                </button>
+              )}
+              <button
+                className="ctrl primary"
+                disabled={busy != null}
+                onClick={() => run(f.tipo)}
+              >
+                {busy === f.tipo ? 'Gerando…' : 'Baixar'}
               </button>
             </div>
           ))}
