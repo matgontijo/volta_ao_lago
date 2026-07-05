@@ -44,9 +44,62 @@ h1, .hero-athlete, .hero-timer, .brand h1, .btn { font-family: 'Sora', 'Inter', 
 /* ---------- Login ---------- */
 .login { justify-content: center; }
 .brand { text-align: center; margin-bottom: 12px; }
-.brand img { filter: drop-shadow(0 0 24px rgba(56,224,200,.4)); transform: scale(1.1); }
-.brand h1 { margin: 16px 0 0; font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #fff, #8ba0c2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.brand p { margin: 6px 0 0; color: var(--accent); text-transform: uppercase; letter-spacing: 3px; font-size: 11px; font-weight: 700; }
+.brand h1 { margin: 18px 0 0; font-size: 33px; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(135deg, #fff, #8ba0c2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.brand p { margin: 7px 0 0; color: var(--warn); text-transform: uppercase; letter-spacing: 3px; font-size: 11px; font-weight: 700; }
+
+/* ---------- Gate (moldura das telas de entrada) ---------- */
+.gate-screen { position: relative; }
+.gate-screen > *:not(.gate-scene) { position: relative; z-index: 1; }
+.gate-scene {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(560px 380px at 12% 6%, rgba(247,201,72,.07), transparent 60%),
+    radial-gradient(640px 460px at 90% 94%, rgba(79,138,255,.1), transparent 60%);
+}
+.gate-route { width: 100%; height: 100%; display: block; }
+
+.gate-logo-wrap { position: relative; width: 132px; height: 132px; margin: 0 auto; }
+.gate-logo-wrap::after {
+  content: ''; position: absolute; inset: -26px; z-index: -1; border-radius: 50%;
+  background: radial-gradient(circle, rgba(247,201,72,.16), transparent 65%);
+}
+.gate-logo {
+  width: 132px; height: 132px; border-radius: 32px; object-fit: cover; display: block;
+  box-shadow: 0 18px 44px rgba(0,0,0,.6);
+}
+.gate-logo-ring {
+  position: absolute; inset: -8px; border-radius: 38px; padding: 2px;
+  background: conic-gradient(from 130deg, transparent 0 62%, rgba(247,201,72,.95) 78%, transparent 94%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: gate-ring-spin 7s linear infinite;
+  filter: drop-shadow(0 0 7px rgba(247,201,72,.4));
+}
+@keyframes gate-ring-spin { to { transform: rotate(360deg); } }
+
+.gate-foot {
+  margin-top: 6px; color: var(--muted); font-size: 12px; letter-spacing: .4px;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.gate-live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #34d399;
+  box-shadow: 0 0 9px #34d399; animation: gate-pulse 2.2s ease-in-out infinite;
+}
+@keyframes gate-pulse { 50% { opacity: .35; } }
+
+.gate-spinner {
+  width: 36px; height: 36px; border-radius: 50%; margin: 4px auto 12px;
+  border: 3px solid var(--line); border-top-color: var(--warn);
+  animation: gate-spin .9s linear infinite;
+}
+@keyframes gate-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .gate-mover { display: none; }
+  .gate-logo-ring, .gate-live-dot { animation: none; }
+}
 .card { background: var(--surface); backdrop-filter: blur(16px); border: 1px solid var(--line); border-radius: 24px; padding: 24px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 24px 48px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,0.1); }
 .card label { font-size: 13px; color: var(--muted); margin-top: 8px; font-weight: 500; }
 .card input { background: rgba(0,0,0,0.3); border: 1px solid var(--line); color: var(--text); border-radius: 14px; padding: 16px; font-size: 16px; transition: all 0.2s; }

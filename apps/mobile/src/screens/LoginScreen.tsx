@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { login, quickLogin, quickRoster, type QuickUser } from '../lib/api';
 import type { JwtProfile } from '../lib/types';
+import { GateShell } from './GateShell';
 
 interface Props {
   onLogin: (token: string, profile: JwtProfile) => void;
@@ -53,13 +54,7 @@ export function LoginScreen({ onLogin }: Props) {
   }
 
   return (
-    <div className="screen login">
-      <div className="brand">
-        <img src="/logo.png" width={120} alt="Logo" />
-        <h1>Canelas do Planalto</h1>
-        <p>Painel do Co-piloto</p>
-      </div>
-
+    <GateShell sub="Painel do Co-piloto">
       {mode === 'quick' ? (
         <div className="card">
           <label>Toque no seu veículo</label>
@@ -130,7 +125,7 @@ export function LoginScreen({ onLogin }: Props) {
       <div className="quick">
         <small>Prefira o QR code gerado pela torre — entra direto no seu acesso.</small>
       </div>
-    </div>
+    </GateShell>
   );
 }
 

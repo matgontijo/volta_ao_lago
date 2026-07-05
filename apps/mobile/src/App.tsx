@@ -3,6 +3,7 @@ import type { Socket } from 'socket.io-client';
 import { validateToken } from './lib/api';
 import { connectSocket } from './lib/socket';
 import type { JwtProfile } from './lib/types';
+import { GateShell } from './screens/GateShell';
 import { LoginScreen } from './screens/LoginScreen';
 import { OperateScreen } from './screens/OperateScreen';
 
@@ -91,28 +92,27 @@ export function App() {
 
   if (magicState === 'checking') {
     return (
-      <div className="screen login">
+      <GateShell sub="QR Code">
         <div className="card identity-card">
-          <img src="/logo.png" width={100} alt="Logo" style={{ margin: '0 auto 10px', display: 'block' }} />
+          <div className="gate-spinner" aria-hidden />
           <h2>Validando acesso…</h2>
           <p>Conferindo seu QR code com a torre.</p>
         </div>
-      </div>
+      </GateShell>
     );
   }
 
   if (magicState === 'error') {
     return (
-      <div className="screen login">
+      <GateShell sub="QR Code">
         <div className="card identity-card">
-          <img src="/logo.png" width={100} alt="Logo" style={{ margin: '0 auto 10px', display: 'block' }} />
           <h2>⚠️ QR code não aceito</h2>
           <p>{magicError}</p>
           <button className="btn btn-primary big" onClick={() => setMagicState('idle')}>
-            Entrar com usuário e senha
+            Entrar de outro jeito
           </button>
         </div>
-      </div>
+      </GateShell>
     );
   }
 
@@ -124,9 +124,8 @@ export function App() {
 function IdentityScreen({ onSave }: { onSave: (name: string) => void }) {
   const [name, setName] = useState('');
   return (
-    <div className="screen login">
+    <GateShell sub="Identificação">
       <div className="card identity-card">
-        <img src="/logo.png" width={100} alt="Logo" style={{ margin: '0 auto 10px', display: 'block' }} />
         <h2>Quem está operando?</h2>
         <p>Informe seu nome para iniciar o rastreio.</p>
         <input
@@ -145,6 +144,6 @@ function IdentityScreen({ onSave }: { onSave: (name: string) => void }) {
           Iniciar Rastreio
         </button>
       </div>
-    </div>
+    </GateShell>
   );
 }
