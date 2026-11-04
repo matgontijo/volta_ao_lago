@@ -12,3 +12,24 @@ pgdata/
 # Config local do Claude Code fica fora — mas os workflows são versionados.
 .claude/*
 !.claude/workflows/
+
+# Local secrets and generated development artifacts (portfolio audit)
+.env
+.env.*
+!.env.example
+!.env.*.example
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+node_modules/
+.next/
+coverage/
+playwright-report/
+*.tsbuildinfo
+*.db
+*.sqlite
+*.sqlite3
