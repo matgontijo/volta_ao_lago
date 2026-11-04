@@ -1,5 +1,9 @@
 # 🏁 Volta do Lago
 
+Real-time race logistics and GPS tracking with transactional handovers and event delivery.
+
+Technical evidence, validation and limitations: [portfolio notes](docs/PORTFOLIO.md).
+
 Sistema de **logística, cronometragem e rastreamento GPS em tempo real** para a
 ultramaratona de revezamento *Volta do Lago*. Arquitetura orientada a eventos,
 baixa latência e escalável horizontalmente.
